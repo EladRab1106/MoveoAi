@@ -321,17 +321,39 @@ $("examples").querySelectorAll("button").forEach((b) => b.addEventListener("clic
 // ---------------------------------------------------------------- voice (browser-native, bonus)
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const mic = $("mic");
-if (!SR) { mic.disabled = true; mic.title = "Voice input isn't supported in this browser"; }
-else {
+const VOICE_ERRORS = {
+  "not-allowed": "Microphone access is blocked. Allow it in your browser's site settings and try again.",
+  "audio-capture": "No microphone was found.",
+  "no-speech": "Didn't catch anything. Try again.",
+  "network": "This browser can't reach its speech service. Voice input works in Chrome, Edge or Safari.",
+  "service-not-allowed": "This browser doesn't allow speech recognition. Voice input works in Chrome, Edge or Safari.",
+  "language-not-supported": "Speech recognition for English isn't available in this browser.",
+};
+// Errors that mean voice will never work in this browser: hide the mic for the session.
+const FATAL_VOICE_ERRORS = new Set(["network", "service-not-allowed", "language-not-supported"]);
+function setStatus(text) { $("status").textContent = text; }
+if (!SR) {
+  mic.hidden = true;  // API not supported (e.g. Firefox): don't show a dead button
+} else {
   const rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-  let listening = false;
+  let listening = false, failed = false;
+  rec.onstart = () => { listening = true; failed = false; mic.classList.add("rec"); setStatus("Listening… click the mic again to stop."); };
   rec.onresult = (e) => { input.value = Array.from(e.results).map((r) => r[0].transcript).join(""); autosize(); };
-  rec.onend = () => { listening = false; mic.classList.remove("rec"); $("status").textContent = "";
-    if (input.value.trim()) ask(input.value); };
-  rec.onerror = (e) => { $("status").textContent = "Voice error: " + e.error; };
+  rec.onerror = (e) => {
+    if (e.error === "aborted") return;
+    failed = true;
+    setStatus(VOICE_ERRORS[e.error] || `Voice input failed (${e.error}).`);
+    if (FATAL_VOICE_ERRORS.has(e.error)) { mic.hidden = true; }
+  };
+  rec.onend = () => {
+    listening = false; mic.classList.remove("rec");
+    if (failed) return;                           // keep the error message visible
+    setStatus(input.value.trim() ? "Review the transcript and press Send." : "");
+    input.focus();
+  };
   mic.addEventListener("click", () => {
     if (listening) { rec.stop(); return; }
-    listening = true; mic.classList.add("rec"); $("status").textContent = "Listening…"; rec.start();
+    try { rec.start(); } catch (err) { setStatus(`Voice input failed (${err.message}).`); }
   });
 }
 function speak(text) {
