@@ -101,6 +101,7 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .btn.on { background: var(--chip); color: var(--chip-text); }
 .btn.rec { background: var(--crit-bg); color: var(--crit); border-color: var(--crit); }
 .composer-meta { display: flex; gap: 12px; color: var(--muted); font-size: 12px; margin-top: 6px; }
+#voicelog { margin: 8px 0 0; max-height: 140px; font-size: 11px; white-space: pre-wrap; }
 .linkbtn { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; text-decoration: underline; font-size: 12px; }
 aside { border-left: 1px solid var(--border); background: var(--panel); overflow-y: auto; padding: 16px; }
 aside h3 { font-size: 14px; margin: 0 0 4px; }
@@ -148,6 +149,7 @@ aside tr { cursor: pointer; } aside tr:hover td { background: var(--code); }
           <button type="button" class="linkbtn" id="reset">New conversation</button>
           <span id="status"></span>
         </div>
+        <pre id="voicelog" hidden aria-label="Voice debug log"></pre>
       </div>
     </form>
   </main>
@@ -334,33 +336,73 @@ const FATAL_VOICE_ERRORS = new Set(["network", "service-not-allowed", "language-
 function setStatus(text) { $("status").textContent = text; }
 // Voice input is experimental: it failed to transcribe in testing (Chrome/macOS, mic permission
 // granted), so it's hidden unless opted in with ?voice=1. Read-aloud is unaffected.
+// In opt-in mode every step is logged with console.log (visible at Chrome's default levels,
+// unlike console.debug) and mirrored to an on-screen box, so logs can't be confused with
+// injected extension scripts.
 const VOICE_ENABLED = new URLSearchParams(location.search).get("voice") === "1";
+const voiceLogEl = $("voicelog");
+function vlog(...args) {
+  const line = `${new Date().toISOString().slice(11, 23)} ${args.map((a) =>
+    typeof a === "string" ? a : JSON.stringify(a)).join(" ")}`;
+  console.log("[voice]", ...args);
+  if (voiceLogEl) { voiceLogEl.hidden = false; voiceLogEl.textContent += line + "\n"; voiceLogEl.scrollTop = voiceLogEl.scrollHeight; }
+}
+if (VOICE_ENABLED) {
+  vlog("init", { SpeechRecognition: !!window.SpeechRecognition, webkitSpeechRecognition: !!window.webkitSpeechRecognition,
+    secureContext: window.isSecureContext, ua: navigator.userAgent });
+}
 if (!SR || !VOICE_ENABLED) {
   mic.hidden = true;  // unsupported (e.g. Firefox) or not opted in: don't show a dead button
+  if (VOICE_ENABLED) vlog("mic hidden: Web Speech API not available in this browser");
 } else {
-  const rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-  // Log the full event sequence to the console to diagnose transcription failures.
-  ["audiostart", "soundstart", "speechstart", "speechend", "audioend", "nomatch"]
-    .forEach((ev) => rec.addEventListener(ev, () => console.debug("[voice]", ev)));
+  let rec;
+  try {
+    rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+    vlog("recognition object created", { lang: rec.lang, interimResults: rec.interimResults });
+  } catch (err) {
+    vlog("recognition object creation FAILED", err.message);
+  }
   let listening = false, failed = false;
-  rec.onstart = () => { listening = true; failed = false; mic.classList.add("rec"); setStatus("Listening… click the mic again to stop."); };
-  rec.onresult = (e) => { input.value = Array.from(e.results).map((r) => r[0].transcript).join(""); autosize(); };
-  rec.onerror = (e) => {
-    console.debug("[voice] error", e.error, e.message);
-    if (e.error === "aborted") return;
-    failed = true;
-    setStatus(VOICE_ERRORS[e.error] || `Voice input failed (${e.error}).`);
-    if (FATAL_VOICE_ERRORS.has(e.error)) { mic.hidden = true; }
-  };
-  rec.onend = () => {
-    listening = false; mic.classList.remove("rec");
-    if (failed) return;                           // keep the error message visible
-    setStatus(input.value.trim() ? "Review the transcript and press Send." : "");
-    input.focus();
-  };
+  if (rec) {
+    rec.onstart = () => { vlog("onstart"); listening = true; failed = false; mic.classList.add("rec"); setStatus("Listening… click the mic again to stop."); };
+    rec.onaudiostart = () => vlog("onaudiostart (mic capture began)");
+    rec.onsoundstart = () => vlog("onsoundstart (sound detected)");
+    rec.onspeechstart = () => vlog("onspeechstart (speech detected)");
+    rec.onspeechend = () => vlog("onspeechend");
+    rec.onaudioend = () => vlog("onaudioend");
+    rec.onnomatch = () => vlog("onnomatch");
+    rec.onresult = (e) => {
+      const text = Array.from(e.results).map((r) => r[0].transcript).join("");
+      vlog("onresult", { text, final: e.results[e.results.length - 1].isFinal });
+      input.value = text; autosize();
+    };
+    rec.onerror = (e) => {
+      vlog("onerror", { error: e.error, message: e.message || "" });
+      if (e.error === "aborted") return;
+      failed = true;
+      setStatus(VOICE_ERRORS[e.error] || `Voice input failed (${e.error}).`);
+      if (FATAL_VOICE_ERRORS.has(e.error)) { mic.hidden = true; }
+    };
+    rec.onend = () => {
+      vlog("onend", { failed, transcript: input.value });
+      listening = false; mic.classList.remove("rec");
+      if (failed) return;                           // keep the error message visible
+      setStatus(input.value.trim() ? "Review the transcript and press Send." : "No speech was transcribed.");
+      input.focus();
+    };
+  }
   mic.addEventListener("click", () => {
-    if (listening) { rec.stop(); return; }
-    try { rec.start(); } catch (err) { setStatus(`Voice input failed (${err.message}).`); }
+    vlog("mic click", { listening, haveRecognition: !!rec });
+    if (!rec) { setStatus("Voice input couldn't start in this browser."); return; }
+    if (listening) { vlog("calling rec.stop()"); rec.stop(); return; }
+    try {
+      vlog("before rec.start()");
+      rec.start();
+      vlog("after rec.start() (returned without throwing)");
+    } catch (err) {
+      vlog("rec.start() THREW", { name: err.name, message: err.message });
+      setStatus(`Voice input failed (${err.message}).`);
+    }
   });
 }
 function speak(text) {
