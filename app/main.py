@@ -68,4 +68,5 @@ def methodology() -> dict:
 # Local dev only: on Vercel, public/ is served statically before reaching Python.
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    return FileResponse(ROOT_DIR / "public" / "index.html")
+    # no-cache: always revalidate so a stale page is never served after an update
+    return FileResponse(ROOT_DIR / "public" / "index.html", headers={"Cache-Control": "no-cache"})

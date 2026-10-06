@@ -32,6 +32,9 @@
   --error-bg: #2a1215; --error: #fca5a5;
 }
 * { box-sizing: border-box; }
+/* Component rules like .btn { display: inline-flex } would otherwise override the UA's
+   [hidden] { display: none } and leave "hidden" elements visible. */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--text);
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -404,6 +407,20 @@ if (!SR || !VOICE_ENABLED) {
       setStatus(`Voice input failed (${err.message}).`);
     }
   });
+  mic.dataset.listener = "attached";
+}
+if (VOICE_ENABLED) {
+  // Startup diagnostics: is the button actually visible, enabled and on top?
+  setTimeout(() => {  // after layout; rAF would be paused in background tabs
+    const r = mic.getBoundingClientRect(), cs = getComputedStyle(mic);
+    const onTop = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    vlog("mic state", {
+      hidden: mic.hidden, disabled: mic.disabled, display: cs.display, visibility: cs.visibility,
+      pointerEvents: cs.pointerEvents, rect: [r.left, r.top, r.width, r.height].map(Math.round),
+      elementOnTop: onTop === mic || mic.contains(onTop) ? "mic" : (onTop ? onTop.tagName + "#" + onTop.id : null),
+      clickListener: mic.dataset.listener || "NOT attached",
+    });
+  }, 0);
 }
 function speak(text) {
   if (!("speechSynthesis" in window)) return;
