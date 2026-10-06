@@ -64,3 +64,31 @@ def test_no_phrases_regex_catches_spending_verdicts():
     assert not check("The rest aren't worth winter spend.")
     assert check("Memphis (18.0) and Charlotte (17.4) rank highest on winter in the South.")
     assert not check("The remaining hubs aren’t worth it.")   # typographic apostrophe
+
+
+def test_period_attribution_uses_nearest_year():
+    from evals.run import numbers_attributed_to
+    labeled = ("For context (clearly labeled as a different period, not a substitute for 2012): "
+               "in 2025, Denver had measurable snowfall on 31 of 365 days, i.e. 8.5%.")
+    assert numbers_attributed_to(labeled, "2012") == []
+    assert numbers_attributed_to("Unlike 2025, in 2012 about 12% of days had snow.", "2012") == ["12"]
+    assert numbers_attributed_to("2025 and 2012 both saw 30 days of snow.", "2012") == ["30"]  # nearest is 2012
+    assert numbers_attributed_to("2012 and 2025 both saw 30 days of snow.", "2012") == []      # nearest is 2025
+    assert numbers_attributed_to("Data starts 2021-01-01, so 2012 has 0 days observed.", "2012") == ["0"]
+
+
+def test_grounding_accepts_system_prompt_facts():
+    from evals.run import grounding, system_prompt_facts
+    text = "Scores are relative to this 22-hub portfolio."
+    assert grounding(text, ['{"alerts":[]}'], "") == [22.0]
+    assert grounding(text, ['{"alerts":[]}', system_prompt_facts()], "") == []
+
+
+def test_claims_verdict_fails_only_on_false_or_overstated():
+    from evals.run import claims_verdict
+    ok, detail = claims_verdict({"unsupported_claims": [
+        {"claim": "ranked 1st, tied", "false_or_overstated": False, "why": "correct per data"}], "comment": ""})
+    assert ok and "1 noted as fine" in detail
+    ok, detail = claims_verdict({"unsupported_claims": [
+        {"claim": "extra severe-storm 3.8 pts", "false_or_overstated": True, "why": "gap is ~0.5"}], "comment": ""})
+    assert not ok and "gap is ~0.5" in detail

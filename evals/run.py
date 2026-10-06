@@ -26,9 +26,10 @@ from pathlib import Path
 import yaml
 
 from app.agent.agent import AgentError, client, run_agent
+from app.agent.prompts import system_prompt
 from app.agent.schemas import ChatMessage, ChatResponse
 from app.config import ANTHROPIC_MODEL
-from app.hubs import find_hub
+from app.hubs import find_hub, load_hubs
 from app.scoring import engine
 
 EVAL_DIR = Path(__file__).parent
@@ -101,6 +102,12 @@ def extract_numbers(text: str) -> list[float]:
     return out
 
 
+def system_prompt_facts() -> str:
+    """Facts the agent is explicitly given in its system prompt (the dated prompt text and the
+    hub list it enumerates, i.e. the portfolio size), which count as grounded."""
+    return f"{system_prompt()}\nportfolio_size: {len(load_hubs())}"
+
+
 def _ignorable(x: float, user_numbers: set[float]) -> bool:
     if x == int(x) and (x <= 10 or 1990 <= x <= 2035):   # counts ("top 3") and years
         return True
@@ -150,17 +157,28 @@ SENTENCE_RE = re.compile(r"(?<=[.!?;])\s+|\n+")
 STAT_SUFFIX_RE = re.compile(r"\s*(%|percent\b|days?\b|of\b)", re.IGNORECASE)
 
 
+YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
+
+
 def numbers_attributed_to(text: str, period: str) -> list[str]:
-    """Statistic-like numbers (followed by %, 'percent', 'days' or 'of') stated in the same
-    sentence as `period` (e.g. '2012'). Durations such as '13 years earlier', dates and
-    labeled figures for other periods (in other sentences) are allowed."""
+    """Statistic-like numbers (followed by %, 'percent', 'days' or 'of') whose nearest year
+    mention in the same sentence is `period` (e.g. '2012'). Figures explicitly labeled with
+    another year ("in 2025 … 31 of 365 days", even beside a "not a substitute for 2012"
+    disclaimer) and durations such as '13 years earlier' are allowed. Equidistant years count
+    against the agent (conservative)."""
     found = []
     for sent in SENTENCE_RE.split(text):
         if period not in sent:
             continue
-        sent = DATE_RE.sub(" ", sent)
+        # ISO dates count as mentions of their year; keep string positions unchanged
+        sent = DATE_RE.sub(lambda d: d.group()[:4] + " " * (len(d.group()) - 4), sent)
+        years = [(y.start(), y.end(), y.group()) for y in YEAR_RE.finditer(sent)]
         for m in NUM_RE.finditer(sent):
-            if STAT_SUFFIX_RE.match(sent, m.end()) and m.group() != period:
+            if not STAT_SUFFIX_RE.match(sent, m.end()) or YEAR_RE.fullmatch(m.group()):
+                continue
+            dist = lambda y: max(y[0] - m.end(), m.start() - y[1], 0)
+            nearest = min(dist(y) for y in years)
+            if any(y[2] == period and dist(y) == nearest for y in years):
                 found.append(m.group())
     return found
 
@@ -313,8 +331,11 @@ CLAIMS_SCHEMA = {
     "required": ["unsupported_claims", "comment"],
     "properties": {
         "unsupported_claims": {"type": "array", "items": {
-            "type": "object", "additionalProperties": False, "required": ["claim", "why"],
-            "properties": {"claim": {"type": "string"}, "why": {"type": "string"}}}},
+            "type": "object", "additionalProperties": False,
+            "required": ["claim", "false_or_overstated", "why"],
+            "properties": {"claim": {"type": "string"},
+                           "false_or_overstated": {"type": "boolean"},
+                           "why": {"type": "string"}}}},
         "comment": {"type": "string"},
     },
 }
@@ -336,6 +357,8 @@ def judge_claims(resp: ChatResponse, tool_outputs: list[str]) -> tuple[bool, str
         "or (c) an absolute judgement the outputs can't support. Do NOT flag a comparison that "
         "the tool values directly support (e.g. 41.1 > 31.5, or the largest of values that are "
         "all listed), a restated rank, or a qualitative summary consistent with the numbers. "
+        "For each claim you list, set false_or_overstated=true only if it is (a), (b) or (c); "
+        "set it to false for anything you list merely to note that it checks out. "
         "Return an empty list if no claim is false or overstated.")
     r = client().messages.create(
         model=JUDGE_MODEL, max_tokens=16000,
@@ -348,10 +371,17 @@ def judge_claims(resp: ChatResponse, tool_outputs: list[str]) -> tuple[bool, str
         g = json.loads(next((b.text for b in r.content if b.type == "text"), ""))
     except json.JSONDecodeError as exc:
         return False, f"judge error: invalid JSON ({exc})", usage
-    bad = g["unsupported_claims"]
-    return (not bad,
-            "all comparative claims supported" if not bad else
-            "unsupported: " + "; ".join(f"'{c['claim']}' ({c['why']})" for c in bad), usage)
+    ok, detail = claims_verdict(g)
+    return ok, detail, usage
+
+
+def claims_verdict(g: dict) -> tuple[bool, str]:
+    """Fail only on claims the judge marks false_or_overstated=true."""
+    bad = [c for c in g["unsupported_claims"] if c.get("false_or_overstated")]
+    noted = len(g["unsupported_claims"]) - len(bad)
+    if not bad:
+        return True, "all comparative claims supported" + (f" ({noted} noted as fine)" if noted else "")
+    return False, "unsupported: " + "; ".join(f"'{c['claim']}' ({c['why']})" for c in bad)
 
 
 # ------------------------------------------------------------------ runner
@@ -378,7 +408,8 @@ def run_case(case: dict, model: str, use_judge: bool, verbose: bool) -> dict:
             usage[k] += resp.usage.get(k, 0)
         tool_outputs.extend(c.output or "" for c in resp.tool_calls)
         user_text = " ".join(m.content for m in history if m.role == "user")
-        checks = run_checks(turn.get("checks", {}), resp, tool_outputs, user_text)
+        checks = run_checks(turn.get("checks", {}), resp, tool_outputs + [system_prompt_facts()],
+                            user_text)
         facts = turn.get("checks", {}).get("facts")
         if facts and use_judge:
             ok, detail, ju = judge(turn["user"], resp, [render_fact(f) for f in facts])

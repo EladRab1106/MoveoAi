@@ -106,7 +106,7 @@ data/                     hubs.yaml, weather.db (snapshot)
 public/index.html         UI
 evals/                    cases.yaml, run.py, results/*.json
 scripts/                  ingest.py, ask.py
-tests/                    45 offline tests
+tests/                    57 offline tests
 ```
 
 **Layering:** `data_sources → storage → scoring → agent/alerts → main`. Each layer only
@@ -156,26 +156,61 @@ by the chat path.
 
 ## 5. Evaluation results
 
-**Final: 16/16 cases pass** on `claude-opus-5` (effort `medium`), with the Claude Sonnet 5 judge.
-The full run (`evals/results/20261006-152249.json`) completed 14/16. All 14 passed every
-check; the other 2 (`methodology`, `live_alerts`) hit an API credit limit mid-run and never
-reached the agent. They were rerun alone and passed (`evals/results/20261006-152705.json`).
+**Latest full run: 16/17 cases pass** (`evals/results/20261006-172027.json`, `claude-opus-5` at
+effort `medium`, Claude Sonnet 5 judge). The one failure is the residual explanation error
+described below. Read the results in two layers, because they behave differently:
 
-| Check | Result |
+**1. Deterministic calculation correctness.** Scores, ranks, ties, tiers, day counts and
+percentages come from the scoring engine, not the model. They are exact and reproducible
+for a given data snapshot. The 57 unit and API tests cover them, and so do the eval checks
+whose expected values are computed from the engine at run time:
+
+| Engine-resolved check (latest run) | Result |
 |---|---|
-| Numbers grounded in tool outputs | 19/19 turns |
-| Schema valid | 19/19 turns |
-| Rankings match the engine (`top_k`) | 5/5 |
+| Rankings match the engine (`top_k`) | 6/6 |
+| Correct hub referenced first / included (`hub_refs_*`) | 4/4 · 2/2 |
+| Specific values: stat %, days/yr, tier | 2/2 · 1/1 · 1/1 |
 | Required tool calls (assignment questions) | 4/4 |
-| Judge fact checks + explanation quality | 2/2 |
-| Scope flag / key concepts / no number for a missing period | 5/5 · 9/9 · 1/1 |
-| Engine values (stat %, days/yr, tier) | 4/4 |
 
-| | Full run | Rerun (2 cases) |
+The hub table the UI shows (score, tier, rank, drivers) is filled from the engine by the API,
+not from model text, so it can't be misquoted.
+
+**2. Stochastic explanation reliability.** The prose the model writes around those numbers is
+probabilistic. The prompt rules and the API's schema enforcement reduce errors, but they
+don't eliminate them, so the evals measure them:
+
+| LLM-output check (latest run) | Result | Note |
 |---|---|---|
-| Latency per turn, p50 / p95 | 17.2 s / 17.9 s | 19.4 s / 22.6 s |
-| Tokens (in / out) | 225k / 20k | 20k / 2k |
-| Estimated cost | $1.64 | $0.15 |
+| Schema valid | 21/21 turns | Enforced by the API (constrained decoding) and re-validated |
+| Numbers grounded in tool outputs or system-prompt facts | 21/21 turns | Measured, not guaranteed |
+| Comparative/causal claims supported (`claims_supported`, judge) | **5/6 turns** | The one failure is the residual below |
+| Judge fact checks | 3/3 | |
+| Scope flag · key concepts · banned phrasing · no number for a missing period | 5/5 · 10/10 · 4/4 · 1/1 | |
+| Methodology answered via `get_methodology` (`tools_any`) | 3/3 | |
+
+| Latest full run | |
+|---|---|
+| Latency per turn, p50 / p95 | 16.6 s / 25.8 s |
+| Tokens (in / out) | 298k / 22k |
+| Estimated cost (agent + judge) | $2.16 |
+
+**The residual failure mode: wrong causal attribution of a ranking gap.** When explaining
+*why* one hub ranks above another, the model sometimes names the wrong driver. Example from
+the latest run: *"the relatively higher ice-storm component is what lifts Memphis above its
+southern peers"*. But Memphis's ice-storm percentile (41.1) is **lower** than Charlotte's
+(52.3) and Atlanta's (44.1); what actually puts it on top is observed frequency (2.0 vs 0.4
+winter days/yr). The same class of error appeared once in `miami_vs_houston` in the previous
+full run. It does not recur reliably: that case then passed 3 consecutive reruns, and the
+follow-up case had passed 5/5 just before.
+
+- **What stays correct:** the underlying scores and rankings, and the engine-sourced hub
+  table. Only the model's prose explanation of the gap is wrong.
+- **What's already in place:** the prompt requires citing both hubs' component values for
+  such explanations, and the `claims_supported` check exists specifically to catch this type
+  of explanation error. Every occurrence so far was caught by it.
+- **Why it isn't "fixed":** after several narrow prompt and tool iterations, the decision was
+  to stop changing the prompt and document this as a known stochastic limitation rather than
+  over-fit the prompt to individual eval runs.
 
 How the eval set evolved during development (all runs are kept in `evals/results/`):
 
@@ -188,8 +223,19 @@ How the eval set evolved during development (all runs are kept in `evals/results
 | `methodology` after tool fix | 1 | 1/1 | `get_methodology` now separates `snapshot_range` (2021-01-01 to the latest ingest) from `frequency_window` (full calendar years 2021–2025 only). The answer had described the frequency window as the whole snapshot; the eval now checks for the full-year window (string check + 2 judge facts) |
 | Claim-discipline + methodology rules | 6 (+ follow-up ×5) | 5/5 on final prompt; follow-up case 2/3 on final prompt | New prompt rules: always call `get_methodology` for scoring/threshold/window questions; superlatives ("highest", "only", "by far") only when a tool rank supports them, never "in absolute terms", never self-derived rankings. New checks: `claims_supported` (judge sees the tool outputs and flags unsupported superlatives) and `no_phrases`, plus a new `methodology_followup` case. The judge caught real errors along the way, e.g. "Charlotte and Atlanta carry the highest ice-storm percentiles" (Houston 47.9 > Atlanta 44.1). This exposed an occasional self-derived superlative (e.g. "winter is the smallest contributor") |
 | Follow-up stability fixes | `followup_region_switch` ×5 per round | 0/5 → 4/5 → **5/5** | `get_hub_risk` now returns `contributions_ranked` (presentation only, scoring unchanged), so "largest/smallest contributor" comes from the tool. The judge was recalibrated to flag false or overstated claims, not correct comparisons of listed values. Prompt changes: resolve "the top one" to the most recent ranking and name the hub; cite component values for both hubs when explaining why one ranks above another; no unsolicited spending verdicts in ranking summaries. A regex `no_phrases` check catches "only … worth" verdicts |
+| Full set + judge, after all changes | 17 | 14/17 | Two failures were check false positives (a labeled 2025 figure in a sentence that also said "not a substitute for 2012"; a correct "22-hub portfolio" absent from that tool's output). One was a real but sporadic error (Miami/Houston gap attribution; passed 3 reruns) |
+| Eval-check fixes only (agent unchanged) | 17 | **16/17** | `no_number_for_period` uses the nearest year; grounding accepts system-prompt facts; the judge fails only claims it marks `false_or_overstated`. The remaining failure is the documented residual |
 
 ## 6. Known limitations and next steps
+
+- **Stochastic explanation errors (residual).** In each of the last two full runs, one
+  judged explanation turn (of 6) gave the wrong cause for why one hub ranks above another
+  (see section 5).
+  Scores, ranks and the engine-sourced hub table stay correct. `claims_supported` catches
+  these, but in production nothing blocks such an answer from being shown. A possible
+  mitigation is a structured per-hazard gap breakdown from `compare_hubs`, so the
+  explanation comes from the tool, as `contributions_ranked` did for "largest/smallest
+  contributor".
 
 - **Facility-level detail.** Use exact facility coordinates and, where possible, site
   elevation or flood-zone data (FEMA NFHL) instead of metro points and county-level NRI.

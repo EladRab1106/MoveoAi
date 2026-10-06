@@ -34,7 +34,7 @@ The data snapshot (`data/weather.db`) is committed, so the app runs without fetc
 |---|---|
 | `uvicorn app.main:app --reload` | API + chat UI on http://localhost:8000 (API docs at `/docs`) |
 | `python -m scripts.ask "your question"` | Ask the agent from the terminal (prints the full JSON response) |
-| `pytest` | 45 unit/API tests (scoring math, ties, grounding checker, alerts). No API key needed |
+| `pytest` | 57 unit/API tests (scoring math, ties, grounding checker, alerts). No API key needed |
 | `python -m evals.run --dev` | 7-case eval subset against the live agent (~$0.90) |
 | `python -m evals.run --judge` | Full 16-case eval + LLM-judge fact checks (~$2) |
 | `python -m scripts.ingest` | Rebuild the data snapshot from the public APIs (~10 min; Open-Meteo rate limits) |
@@ -189,11 +189,11 @@ so the evals stay valid after a data refresh.
 | Check | How |
 |---|---|
 | `schema` | Response validates against the Pydantic/JSON schema |
-| `grounded` | Every number in the answer traces to a tool output, within ±0.6 or 1%. Allowed derivations: ×100, differences or ratios of two tool numbers, and unit conversions when the unit is written |
+| `grounded` | Every number in the answer must trace to a tool output or a fact stated in the system prompt (e.g. the 22-hub portfolio), within ±0.6 or 1%. Allowed derivations: ×100, differences or ratios of two tool numbers, and unit conversions when the unit is written |
 | `tools` | Required tool calls with key arguments. Assignment questions only; elsewhere the focus is the answer |
 | `top_k`, `hub_refs_*` | Rankings match the engine (ordered, or as a set) |
 | `stat_number`, `hazard_days_number`, `tier_mentioned` | Specific values match the engine |
-| `no_number_for_period` | No statistic stated for an unavailable period |
+| `no_number_for_period` | No statistic attributed (by nearest year) to an unavailable period |
 | `in_scope`, `mentions`, `no_phrases` | Scope flag, key concepts, banned phrasing (e.g. "in absolute terms") |
 | `claims_supported` (`--judge`) | Judge sees the tool outputs and flags any "highest / only / by far" claim that no tool rank supports |
 | `judge` (`--judge`) | Claude Sonnet 5 checks templated ground-truth facts and rates explanation quality |
@@ -204,10 +204,18 @@ python -m evals.run --tags assignment # the 4 assignment questions
 python -m evals.run --judge           # full set + judge; results saved to evals/results/
 ```
 
-**Latest:** 16/16 cases pass. Every number in every answer traces to tool output. About 17 s
-per turn and about $1.80 per full run. Details are in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#5-evaluation-results); raw runs are in
-[`evals/results/`](evals/results/).
+**Latest full run: 16/17 cases pass** (about 17 s per turn, about $2.20 per run). Read it in
+two layers:
+- **Deterministic calculation correctness:** scores, ranks, ties and tiers come from the
+  engine and are checked exactly. Every engine-resolved check passed.
+- **Stochastic explanation reliability:** the model's prose is measured, not guaranteed. In
+  the latest run, numbers were grounded in 21/21 turns, but comparative/causal claims were
+  supported in 5/6 turns. The one failure is a known residual: the model sometimes names the
+  wrong reason why one hub ranks above another. The scores themselves stay correct, and the
+  `claims_supported` check is designed to catch exactly this.
+
+Details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#5-evaluation-results); raw runs are
+in [`evals/results/`](evals/results/).
 
 ---
 
