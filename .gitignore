@@ -6,3 +6,5 @@ __pycache__/
 .vercel/
 .DS_Store
 data/alerts.db
+.vercel
+.env*

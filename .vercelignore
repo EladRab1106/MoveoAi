@@ -7,3 +7,4 @@ tests/
 evals/results/
 session/
 data/alerts.db
+.env.local
