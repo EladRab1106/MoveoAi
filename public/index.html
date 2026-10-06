@@ -329,7 +329,7 @@ const mic = $("mic");
 const VOICE_ERRORS = {
   "not-allowed": "Microphone access is blocked. Allow it in your browser's site settings and try again.",
   "audio-capture": "No microphone was found.",
-  "no-speech": "Didn't catch anything. Try again.",
+  "no-speech": "No speech was heard. Check that the right microphone is selected and unmuted, then try again.",
   "network": "This browser can't reach its speech service. Voice input works in Chrome, Edge or Safari.",
   "service-not-allowed": "This browser doesn't allow speech recognition. Voice input works in Chrome, Edge or Safari.",
   "language-not-supported": "Speech recognition for English isn't available in this browser.",
@@ -337,26 +337,26 @@ const VOICE_ERRORS = {
 // Errors that mean voice will never work in this browser: hide the mic for the session.
 const FATAL_VOICE_ERRORS = new Set(["network", "service-not-allowed", "language-not-supported"]);
 function setStatus(text) { $("status").textContent = text; }
-// Voice input is experimental: it failed to transcribe in testing (Chrome/macOS, mic permission
-// granted), so it's hidden unless opted in with ?voice=1. Read-aloud is unaffected.
-// In opt-in mode every step is logged with console.log (visible at Chrome's default levels,
-// unlike console.debug) and mirrored to an on-screen box, so logs can't be confused with
-// injected extension scripts.
-const VOICE_ENABLED = new URLSearchParams(location.search).get("voice") === "1";
+// Voice input is shown wherever the Web Speech API exists, and hidden when it's missing or its
+// service is unavailable. ?voice=1 turns on debug mode: every step is logged with console.log
+// (visible at Chrome's default levels, unlike console.debug) and mirrored to an on-screen box,
+// so the logs can't be confused with injected extension scripts.
+const VOICE_DEBUG = new URLSearchParams(location.search).get("voice") === "1";
 const voiceLogEl = $("voicelog");
 function vlog(...args) {
   const line = `${new Date().toISOString().slice(11, 23)} ${args.map((a) =>
     typeof a === "string" ? a : JSON.stringify(a)).join(" ")}`;
+  if (!VOICE_DEBUG) return;
   console.log("[voice]", ...args);
   if (voiceLogEl) { voiceLogEl.hidden = false; voiceLogEl.textContent += line + "\n"; voiceLogEl.scrollTop = voiceLogEl.scrollHeight; }
 }
-if (VOICE_ENABLED) {
+if (VOICE_DEBUG) {
   vlog("init", { SpeechRecognition: !!window.SpeechRecognition, webkitSpeechRecognition: !!window.webkitSpeechRecognition,
     secureContext: window.isSecureContext, ua: navigator.userAgent });
 }
-if (!SR || !VOICE_ENABLED) {
-  mic.hidden = true;  // unsupported (e.g. Firefox) or not opted in: don't show a dead button
-  if (VOICE_ENABLED) vlog("mic hidden: Web Speech API not available in this browser");
+if (!SR) {
+  mic.hidden = true;  // unsupported (e.g. Firefox): don't show a dead button
+  vlog("mic hidden: Web Speech API not available in this browser");
 } else {
   let rec;
   try {
@@ -409,7 +409,7 @@ if (!SR || !VOICE_ENABLED) {
   });
   mic.dataset.listener = "attached";
 }
-if (VOICE_ENABLED) {
+if (VOICE_DEBUG && SR) {
   // Startup diagnostics: is the button actually visible, enabled and on top?
   setTimeout(() => {  // after layout; rAF would be paused in background tabs
     const r = mic.getBoundingClientRect(), cs = getComputedStyle(mic);
