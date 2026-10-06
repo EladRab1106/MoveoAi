@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS nri_hazard (
 CREATE TABLE IF NOT EXISTS disaster_declaration (
     hub_id          TEXT NOT NULL,
     disaster_number INTEGER NOT NULL,
+    declaration_type TEXT,               -- DR major disaster | EM emergency | FM fire mgmt
     incident_type   TEXT,
     title           TEXT,
     declaration_date TEXT,

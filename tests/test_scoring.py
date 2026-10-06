@@ -103,3 +103,17 @@ def test_weather_stat_percent():
     assert (hits, observed) == (73, 365)
     with pytest.raises(ValueError):
         compute_weather_stat(days, "fog", date(2025, 1, 1), date(2025, 12, 31), CFG)
+
+
+def test_ties_share_rank_and_are_listed():
+    a = make_year(2023, {i: {"precip_mm": 60.0} for i in range(4)})
+    b = make_year(2023, {i: {"precip_mm": 60.0} for i in range(4)})
+    c = make_year(2023, {i: {"precip_mm": 60.0} for i in range(1)})
+    scores = score_portfolio([hub("a"), hub("b"), hub("c")], {"a": a, "b": b, "c": c}, {}, CFG)
+    fa = next(h for h in scores["a"].hazards if h.hazard == "flood").frequency
+    fc = next(h for h in scores["c"].hazards if h.hazard == "flood").frequency
+    assert (fa.portfolio_rank, fa.tied_with) == (1, ["b"])
+    assert (fc.portfolio_rank, fc.tied_with) == (3, [])
+    ranked = rank(list(scores.values()), hazard="flood")
+    assert [(r.hub_id, r.rank) for r in ranked] == [("a", 1), ("b", 1), ("c", 3)]
+    assert ranked[0].tied_with == ["b"]

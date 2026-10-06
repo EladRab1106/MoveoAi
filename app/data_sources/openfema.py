@@ -16,13 +16,18 @@ WEATHER_INCIDENT_TYPES = {
 }
 
 
+# declarationType: DR = major disaster (direct damage), EM = emergency (often support
+# actions, e.g. sheltering hurricane evacuees far from landfall), FM = fire management.
+MAJOR_DISASTER = "DR"
+
+
 def fetch_declarations(county_fips: str, since_year: int = 2000) -> list[dict]:
-    """Weather-related federal disaster declarations covering the county."""
+    """Weather-related federal declarations covering the county (all declaration types)."""
     state, county = county_fips[:2], county_fips[2:]
     data = get_json(URL, {
         "$filter": (f"fipsStateCode eq '{state}' and fipsCountyCode eq '{county}' "
                     f"and declarationDate ge '{since_year}-01-01T00:00:00.000Z'"),
-        "$select": "disasterNumber,incidentType,declarationTitle,declarationDate",
+        "$select": "disasterNumber,declarationType,incidentType,declarationTitle,declarationDate",
         "$orderby": "declarationDate desc",
         "$top": 1000,
     })
@@ -33,6 +38,7 @@ def fetch_declarations(county_fips: str, since_year: int = 2000) -> list[dict]:
         seen.add(d["disasterNumber"])
         rows.append({
             "disaster_number": d["disasterNumber"],
+            "declaration_type": d["declarationType"],
             "incident_type": d["incidentType"],
             "title": d["declarationTitle"],
             "declaration_date": d["declarationDate"][:10],

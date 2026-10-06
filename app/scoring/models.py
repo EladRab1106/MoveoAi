@@ -11,6 +11,8 @@ class FrequencyComponent(BaseModel):
     days_per_year: float          # observed average over full years in the window
     normalized: float             # 0-100, min-max across all hubs in the portfolio
     years: list[int]
+    portfolio_rank: int = 0       # 1 = most days; equal values share a rank (competition ranking)
+    tied_with: list[str] = []     # other hub ids with the same days_per_year
 
 
 class LongTermComponent(BaseModel):
@@ -49,11 +51,16 @@ class HubRisk(BaseModel):
     base_score: float             # composite before the live-alert bump
     alert_bump: float = 0.0
     tier: str
-    rank: int | None = None       # rank in the list it was returned in (1 = most exposed)
+    rank: int | None = None       # rank in the list it was returned in (1 = most exposed);
+                                  # equal scores share a rank (1, 1, 3, ...)
+    tied_with: list[str] = []     # hub ids with the same ranking score in that list
     hazards: list[HazardScore]
     top_drivers: list[str]        # hazards ordered by contribution, top 2
     active_alerts: list[ActiveAlert] = []
-    disaster_declarations_since_2000: dict[str, int] = {}
+    # Federal *major disaster* (DR) declarations for the county since 2000, by incident type.
+    # Emergency (EM) declarations are excluded: they often reflect support actions, e.g.
+    # sheltering evacuees far from a hurricane's landfall, not direct impact.
+    major_disaster_declarations_since_2000: dict[str, int] = {}
 
 
 class WeatherStat(BaseModel):

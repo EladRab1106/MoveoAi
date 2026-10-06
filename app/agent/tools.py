@@ -28,6 +28,7 @@ def _brief(r: HubRisk, hazard: str | None = None) -> dict:
     out = {
         "rank": r.rank, "hub_id": r.hub_id, "hub": f"{r.name}, {r.state}", "region": r.region,
         "composite_score": r.composite_score, "tier": r.tier, "top_drivers": r.top_drivers,
+        **({"tied_with": r.tied_with} if r.tied_with else {}),
         "hazard_scores": {h.hazard: h.score for h in r.hazards},
     }
     if hazard:
@@ -35,6 +36,8 @@ def _brief(r: HubRisk, hazard: str | None = None) -> dict:
         out["hazard_detail"] = {
             "score": h.score,
             "observed_disruption_days_per_year": h.frequency.days_per_year,
+            "observed_days_portfolio_rank": h.frequency.portfolio_rank,
+            **({"observed_days_tied_with": h.frequency.tied_with} if h.frequency.tied_with else {}),
             "observed_rule": h.frequency.threshold,
             "fema_nri_long_term_score": h.long_term.score,
             "nri_components": h.long_term.components,
@@ -59,7 +62,8 @@ def rank_hubs(hazard: str, region: str, top_n: int) -> dict:
         "hubs_in_scope": len(ranked),
         "results": [_brief(r, hz) for r in ranked[:max(1, top_n)]],
         "note": "Scores are 0-100 and relative to this hub portfolio (min-max normalised "
-                "observed frequency blended with FEMA NRI percentiles).",
+                "observed frequency blended with FEMA NRI percentiles). Tied values share a "
+                "rank and are listed in tied_with.",
     }
 
 
@@ -79,12 +83,17 @@ def compare_hubs(hubs: list[str]) -> dict:
         "hubs": [{**_brief(r), "hazards": {h.hazard: {
             "score": h.score,
             "observed_disruption_days_per_year": h.frequency.days_per_year,
+            "observed_rule": h.frequency.threshold,
+            "observed_days_portfolio_rank": h.frequency.portfolio_rank,
+            **({"observed_days_tied_with": h.frequency.tied_with} if h.frequency.tied_with else {}),
             "fema_nri_long_term_score": h.long_term.score,
             "nri_components": h.long_term.components,
             "nri_modelled_events_per_year": h.long_term.annual_events,
-        } for h in r.hazards}, "disaster_declarations_since_2000": r.disaster_declarations_since_2000}
+        } for h in r.hazards},
+            "major_disaster_declarations_since_2000": r.major_disaster_declarations_since_2000}
             for r in rows],
-        "note": "rank = position in the full portfolio by composite score.",
+        "note": "rank = position in the full portfolio by composite score. Ranks use "
+                "competition ranking: tied values share a rank and list tied_with.",
     }
 
 
@@ -128,6 +137,11 @@ def get_methodology() -> dict:
         "nri_codes": {"WNTW": "winter weather", "ISTM": "ice storm", "HRCN": "hurricane",
                       "IFLD": "inland flooding", "CFLD": "coastal flooding", "HWAV": "heat wave",
                       "TRND": "tornado", "HAIL": "hail", "SWND": "strong wind"},
+        "conventions": [
+            "Tied values share a rank (competition ranking: 1, 1, 3) and are listed in tied_with.",
+            "Disaster declaration counts include only FEMA major-disaster (DR) declarations; "
+            "emergency (EM) declarations, e.g. for sheltering evacuees, are excluded.",
+        ],
         "known_limitations": [
             "Each hub is one point; ERA5 reanalysis (~25 km grid) smooths local extremes.",
             "Observed frequency uses only the last ~5 full years; rare events are under-sampled, "
@@ -177,7 +191,8 @@ TOOL_DEFS: list[dict] = [
      "description": "Count days matching a weather condition at a hub over a calendar year or a "
                     "date range, from the daily history. Use for questions like 'what % of days "
                     "in Denver last year had snowfall'. Give either year, or start_date and "
-                    "end_date (YYYY-MM-DD).",
+                    "end_date (YYYY-MM-DD). 'Last year' = the last full calendar year (see "
+                    "system prompt), passed as year.",
      "input_schema": _obj({
          "hub": HUB_ARG,
          "metric": {"type": "string", "enum": METRICS},

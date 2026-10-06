@@ -41,7 +41,7 @@ def _execute(block) -> tuple[dict, ToolCallTrace]:
         content, ok, err = run_tool(block.name, dict(block.input)), True, None
     except Exception as exc:  # report to the model so it can correct itself
         content, ok, err = f"Error: {exc}", False, str(exc)
-    trace = ToolCallTrace(name=block.name, input=dict(block.input), ok=ok, error=err,
+    trace = ToolCallTrace(name=block.name, input=dict(block.input), ok=ok, error=err, output=content,
                           duration_ms=int((time.perf_counter() - t0) * 1000))
     result = {"type": "tool_result", "tool_use_id": block.id, "content": content}
     if not ok:
@@ -65,7 +65,7 @@ def _enrich(answer: LLMAnswer) -> list[HubSummary]:
     return out
 
 
-def run_agent(history: list[ChatMessage]) -> ChatResponse:
+def run_agent(history: list[ChatMessage], model: str | None = None) -> ChatResponse:
     if history[-1].role != "user":
         raise AgentError("The last message must be from the user")
     t_start = time.perf_counter()
@@ -74,7 +74,7 @@ def run_agent(history: list[ChatMessage]) -> ChatResponse:
     usage = {"input_tokens": 0, "output_tokens": 0}
     schema_retry_used = False
     request = dict(
-        model=ANTHROPIC_MODEL,
+        model=model or ANTHROPIC_MODEL,
         max_tokens=MAX_TOKENS,
         system=system_prompt(),
         tools=TOOL_DEFS,
@@ -130,7 +130,7 @@ def run_agent(history: list[ChatMessage]) -> ChatResponse:
                 continue
 
             return ChatResponse(
-                answer=answer, hubs=_enrich(answer), tool_calls=traces, model=response.model,
+                answer=answer, assistant_message=answer.model_dump_json(), hubs=_enrich(answer), tool_calls=traces, model=response.model,
                 latency_ms=int((time.perf_counter() - t_start) * 1000), usage=usage)
 
     raise AgentError(f"No final answer after {MAX_TURNS} model turns")

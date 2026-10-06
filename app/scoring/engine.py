@@ -83,6 +83,17 @@ def aggregate_nri(components: dict[str, float | None], how: str) -> float:
     return max(vals) if how == "max" else mean(vals)
 
 
+def competition_ranks(values: dict[str, float]) -> dict[str, tuple[int, list[str]]]:
+    """Rank keys by value descending; equal values (at 1 decimal) share a rank and list
+    each other as ties. Returns key -> (rank, tied_with)."""
+    rounded = {k: round(v, 1) for k, v in values.items()}
+    out = {}
+    for k, v in rounded.items():
+        rank = 1 + sum(1 for o in rounded.values() if o > v)
+        out[k] = (rank, sorted(o for o, ov in rounded.items() if ov == v and o != k))
+    return out
+
+
 def tier_for(score: float, cfg: dict) -> str:
     for name, lower in sorted(cfg["tiers"].items(), key=lambda kv: -kv[1]):
         if score >= lower:
@@ -118,6 +129,7 @@ def score_portfolio(hubs: list[Hub], weather: dict[str, list[DayRow]],
             raw_freq[key][h.id] = disruption_days_per_year(weather.get(h.id, []), rule,
                                                            years_by_hub[h.id])
     norm_freq = {key: min_max(vals) for key, vals in raw_freq.items()}
+    freq_rank = {key: competition_ranks(vals) for key, vals in raw_freq.items()}
 
     # NRI modelled annual frequency per hazard (summed over its codes), normalised across hubs
     afreq_raw: dict[str, dict[str, float]] = {}
@@ -145,7 +157,9 @@ def score_portfolio(hubs: list[Hub], weather: dict[str, list[DayRow]],
                 frequency=FrequencyComponent(
                     metric=f"{fkey.replace('_', ' ')} disruption days", threshold=rules[fkey][0],
                     days_per_year=round(raw_freq[fkey][h.id], 1),
-                    normalized=round(norm_freq[fkey][h.id], 1), years=years_by_hub[h.id]),
+                    normalized=round(norm_freq[fkey][h.id], 1), years=years_by_hub[h.id],
+                    portfolio_rank=freq_rank[fkey][h.id][0],
+                    tied_with=freq_rank[fkey][h.id][1]),
                 long_term=LongTermComponent(
                     score=round(lt, 1), aggregation=hcfg["nri_agg"],
                     components={k: (round(v, 1) if v is not None else None) for k, v in comps.items()},
@@ -172,12 +186,15 @@ def apply_alerts(risk: HubRisk, alerts: list[ActiveAlert], cfg: dict) -> HubRisk
 
 
 def rank(risks: list[HubRisk], hazard: str | None = None) -> list[HubRisk]:
+    """Order by composite (or one hazard) score; equal scores share a rank and list ties."""
     def key(r: HubRisk) -> float:
         if hazard is None:
             return r.composite_score
         return next(h.score for h in r.hazards if h.hazard == hazard)
-    ordered = sorted(risks, key=key, reverse=True)
-    return [r.model_copy(update={"rank": i + 1}) for i, r in enumerate(ordered)]
+    ranks = competition_ranks({r.hub_id: key(r) for r in risks})
+    ordered = sorted(risks, key=lambda r: (-key(r), r.hub_id))
+    return [r.model_copy(update={"rank": ranks[r.hub_id][0], "tied_with": ranks[r.hub_id][1]})
+            for r in ordered]
 
 
 # ---------------------------------------------------------------- snapshot access
@@ -194,7 +211,8 @@ def _snapshot() -> tuple[dict, dict, dict, dict[str, Counter], dict[str, str]]:
         for r in conn.execute("SELECT hub_id, hazard, loss_rate_pctl, annual_freq FROM nri_hazard"):
             nri[r["hub_id"]][r["hazard"]] = r["loss_rate_pctl"]
             nri_freq[r["hub_id"]][r["hazard"]] = r["annual_freq"]
-        for r in conn.execute("SELECT hub_id, incident_type FROM disaster_declaration"):
+        for r in conn.execute("SELECT hub_id, incident_type FROM disaster_declaration "
+                              "WHERE declaration_type = 'DR'"):
             decl[r["hub_id"]][r["incident_type"]] += 1
         meta = {k: get_meta(conn, k) or "" for k in
                 ("weather_start", "weather_end", "nri_version", "ingested_at")}
@@ -209,7 +227,8 @@ def snapshot_meta() -> dict[str, str]:
 def _base_scores() -> dict[str, HubRisk]:
     weather, nri, nri_freq, decl, _ = _snapshot()
     scores = score_portfolio(list(load_hubs()), weather, nri, scoring_config(), nri_freq)
-    return {hid: r.model_copy(update={"disaster_declarations_since_2000": dict(decl.get(hid, {}))})
+    return {hid: r.model_copy(update={"major_disaster_declarations_since_2000":
+                                      dict(decl.get(hid, {}))})
             for hid, r in scores.items()}
 
 

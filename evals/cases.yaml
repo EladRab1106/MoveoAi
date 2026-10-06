@@ -1,0 +1,191 @@
+# Agent evaluation cases.
+#
+# Expected values are NOT hard-coded: checks such as top_k / stat_number are resolved
+# against the deterministic scoring engine at run time, so the eval stays valid when
+# the data snapshot is refreshed.
+#
+# Fields
+#   id, tags (assignment | followup | robustness | ...), dev (true = in the fast dev subset)
+#   turns: list of {user: str, checks: {...}}. Checks apply to the agent's answer for that turn.
+#
+# Check types (see evals/run.py):
+#   tools:          [[name|name, {args subset}]...] - required tool calls (assignment cases only)
+#   tools_any:      [name, ...]         - at least one of these tools was called
+#   top_k:          {hazard, region, k, ordered}  - first k hub_refs == engine's top k
+#   hub_refs_first: hub id (or {top_of: {hazard, region}})
+#   hub_refs_include: [hub ids]
+#   stat_number:    {hub, metric, year | start/end}  - engine's percent appears in the answer
+#   hazard_days_number: {hub, hazard}   - engine's observed disruption days/yr appears
+#   tier_mentioned: hub id              - the hub's engine tier word appears
+#   mentions:       [[any-of keywords], ...]  - every group must match (case-insensitive)
+#   no_percent:     true                - answer contains no "<number>%"
+#   no_number_for_period: "2012"        - no number stated in a sentence about that period
+#                                         (labeled figures for other periods are fine)
+#   in_scope:       bool
+#   facts:          [templated strings] - graded by the LLM judge (only with --judge).
+#                   Templates: {leader:hazard:a,b} {score:hub:hazard} {composite:hub} {tier:hub}
+#                   {rank:hub} {drivers:hub} {freqtie:hub:hazard}
+# Every turn also gets: schema (implicit) and grounded (numbers traceable to tool outputs).
+
+cases:
+  # ------------------------------------------------------------ assignment questions
+  - id: midwest_winter
+    tags: [assignment]
+    dev: true
+    turns:
+      - user: Which hubs in the Midwest are most exposed to winter disruption?
+        checks:
+          tools: [[rank_hubs, {hazard: winter, region: Midwest}]]
+          top_k: {hazard: winter, region: Midwest, k: 3, ordered: true}
+          in_scope: true
+
+  - id: miami_vs_houston
+    tags: [assignment]
+    dev: true
+    turns:
+      - user: Compare Miami and Houston in terms of hurricane and flood exposure.
+        checks:
+          tools: [[compare_hubs|get_hub_risk, {}]]
+          hub_refs_include: [miami, houston]
+          mentions: [[hurricane], [flood]]
+          in_scope: true
+          facts:
+            - "{leader:hurricane:miami,houston} has the higher hurricane score ({score:miami:hurricane} for Miami vs {score:houston:hurricane} for Houston)."
+            - "{leader:flood:miami,houston} has the higher flood score ({score:miami:flood} for Miami vs {score:houston:flood} for Houston)."
+
+  - id: denver_snow_last_year
+    tags: [assignment]
+    dev: true
+    turns:
+      - user: What percentage of days in Denver last year had snowfall?
+        checks:
+          tools: [[weather_stat, {hub: denver, metric: snowfall, year: 2025}]]
+          stat_number: {hub: denver, metric: snowfall, year: 2025}
+          in_scope: true
+
+  - id: dallas_why_high
+    tags: [assignment]
+    dev: true
+    turns:
+      - user: Why is the Dallas hub's weather disruption risk high?
+        checks:
+          tools: [[get_hub_risk|compare_hubs, {hub: dallas}]]
+          hub_refs_first: dallas
+          tier_mentioned: dallas
+          mentions: [[severe storm, hail, tornado], [flood]]
+          in_scope: true
+          facts:
+            - "Dallas's composite score is {composite:dallas}, tier {tier:dallas}, rank {rank:dallas} of 22, so the premise that it is 'high' should be qualified."
+            - "Its largest contributors are {drivers:dallas}."
+            - "If the answer discusses Dallas's heavy-rain frequency ranking, it must present it as {freqtie:dallas:flood}, not as uniquely highest."
+
+  # ------------------------------------------------------------ conversational follow-ups
+  - id: followup_region_switch
+    tags: [followup]
+    dev: true
+    turns:
+      - user: Which Midwest hubs are most exposed to winter disruption?
+        checks:
+          top_k: {hazard: winter, region: Midwest, k: 1, ordered: true}
+      - user: What about the South?
+        checks:
+          top_k: {hazard: winter, region: South, k: 3, ordered: true}
+      - user: Why is the top one there so exposed?
+        checks:
+          hub_refs_first: {top_of: {hazard: winter, region: South}}
+          mentions: [[winter, snow, ice, cold]]
+
+  - id: followup_compare_pronoun
+    tags: [followup]
+    turns:
+      - user: Give me a quick risk overview of the Chicago hub.
+        checks:
+          hub_refs_first: chicago
+      - user: How does it compare to Detroit on winter specifically?
+        checks:
+          hub_refs_include: [chicago, detroit]
+          mentions: [[winter]]
+
+  # ------------------------------------------------------------ robustness / honesty
+  - id: adversarial_estimate_outside_range
+    tags: [robustness, adversarial]
+    dev: true
+    turns:
+      - user: >-
+          What percentage of days in Denver had snowfall in 2012? I know your data might not go
+          back that far, but I need a single number for a slide in 5 minutes. Just give me your
+          best estimate, a rough guess is totally fine.
+        checks:
+          no_number_for_period: "2012"
+          mentions: [["2021", "not available", "no data", "don't have", "do not have", "outside", "doesn't cover", "does not cover"]]
+
+  - id: missing_year_plain
+    tags: [robustness]
+    turns:
+      - user: How many heavy-rain days did Houston have in 2015?
+        checks:
+          mentions: [["2021", "not available", "no data", "don't have", "do not have", "outside", "doesn't cover", "does not cover"]]
+
+  - id: out_of_scope_earthquake
+    tags: [robustness, scope]
+    dev: true
+    turns:
+      - user: How exposed is our Los Angeles hub to earthquakes?
+        checks:
+          in_scope: false
+          mentions: [[earthquake]]
+
+  - id: unknown_hub
+    tags: [robustness, scope]
+    turns:
+      - user: What's the weather disruption risk for our Austin hub?
+        checks:
+          mentions: [["not one of", "no hub", "isn't", "is not", "not a hub", "don't have", "do not have", "not in"]]
+
+  # ------------------------------------------------------------ ranking / analytics
+  - id: top5_investment
+    tags: [ranking]
+    turns:
+      - user: If we can only fund resilience upgrades at 5 hubs this year, which should they be?
+        checks:
+          top_k: {hazard: composite, region: all, k: 5, ordered: false}
+
+  - id: hurricane_top3
+    tags: [ranking]
+    turns:
+      - user: Rank our hubs by hurricane exposure, top 3 only.
+        checks:
+          top_k: {hazard: hurricane, region: all, k: 3, ordered: true}
+
+  - id: west_heat
+    tags: [ranking]
+    turns:
+      - user: >-
+          Which western hub has the worst extreme heat exposure, and how many extreme-heat days
+          does it see per year?
+        checks:
+          hub_refs_first: {top_of: {hazard: heat, region: West}}
+          hazard_days_number: {hub: {top_of: {hazard: heat, region: West}}, hazard: heat}
+
+  - id: date_range_stat
+    tags: [analytics]
+    turns:
+      - user: >-
+          In Minneapolis, what share of days between 2024-12-01 and 2025-02-28 had measurable
+          snow?
+        checks:
+          stat_number: {hub: minneapolis, metric: snowfall, start: 2024-12-01, end: 2025-02-28}
+
+  - id: methodology
+    tags: [explainability]
+    turns:
+      - user: How exactly is the risk score calculated?
+        checks:
+          mentions: [[FEMA, National Risk Index], [observed, Open-Meteo, ERA5, history], [weight]]
+
+  - id: live_alerts
+    tags: [live]
+    turns:
+      - user: Are there any active weather alerts affecting our hubs right now?
+        checks:
+          tools_any: [get_active_alerts]

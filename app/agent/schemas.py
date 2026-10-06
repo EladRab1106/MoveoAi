@@ -82,6 +82,7 @@ class ToolCallTrace(BaseModel):
     ok: bool
     duration_ms: int
     error: str | None = None
+    output: str | None = Field(default=None, exclude=True)  # for evals; not sent to clients
 
 
 class ChatMessage(BaseModel):
@@ -95,6 +96,9 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: LLMAnswer
+    # What the client should send back as this assistant turn on the next request
+    # (the server is stateless; the client owns the conversation history).
+    assistant_message: str
     hubs: list[HubSummary]
     tool_calls: list[ToolCallTrace]
     model: str

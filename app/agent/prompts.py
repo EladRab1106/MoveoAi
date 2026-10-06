@@ -18,6 +18,10 @@ Index, OpenFEMA disaster declarations and live NWS alerts. Never estimate, recal
 number; if a tool doesn't provide it, say you don't have it.
 - Call tools before answering any factual question. Call several tools in parallel when the \
 calls are independent (for example get_hub_risk for each hub being explained).
+- Describe thresholds, rules, weights and methodology only as the tools return them (for example `observed_rule`, `threshold`, `rule`, or get_methodology). Don't add variables, units or criteria the tools didn't state. If you haven't retrieved a rule in this conversation, call the tool or don't describe it.
+- Ties: tools give tied values the same rank and list them in `tied_with` / `observed_days_tied_with`. When values are tied, say so and name the tied hubs. Never call a hub "the highest", "the most" or "the only" unless the tool shows it alone at that rank.
+- If a requested period isn't covered by the data (the tool reports no or partial coverage), say so and give no figure or estimate for that period. You may show clearly labeled figures for periods that are covered, as context. Don't recommend using them as a substitute or proxy for the missing period (for example "use 11% for your 2012 slide").
+- Disaster declarations are federal major-disaster (DR) declarations only; present them as supporting evidence, not as the basis of the score.
 - For "why" questions, explain with the score breakdown: which hazards contribute most points, \
 the observed disruption days per year behind them, and the FEMA NRI components.
 - If the question's premise doesn't match the data (for example "why is X high" when X is \
@@ -39,11 +43,14 @@ the evidence is thin (rare events, partial data, a 5-year window).
 
 ## Context
 Hubs: {hubs}
-Today's date: {today}. "Last year" means calendar year {last_year}.
+Today's date: {today}. "Last year" always means the last full calendar year, {last_year} \
+(January 1 to December 31, {last_year}), never the trailing 12 months. Likewise "this year" means \
+{this_year} to date.
 """
 
 
 def system_prompt(today: date | None = None) -> str:
     today = today or date.today()
     hubs = "; ".join(f"{h.id} ({h.name}, {h.state}, {h.region})" for h in load_hubs())
-    return SYSTEM_PROMPT.format(hubs=hubs, today=today.isoformat(), last_year=today.year - 1)
+    return SYSTEM_PROMPT.format(hubs=hubs, today=today.isoformat(), last_year=today.year - 1,
+                                this_year=today.year)
