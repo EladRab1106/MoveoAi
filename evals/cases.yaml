@@ -22,6 +22,9 @@
 #   no_number_for_period: "2012"        - no number stated in a sentence about that period
 #                                         (labeled figures for other periods are fine)
 #   in_scope:       bool
+#   no_phrases:     [phrases]           - none may appear (case-insensitive)
+#   claims_supported: true              - judge (with tool outputs) finds no unsupported
+#                                         highest/lowest/most/"absolute terms" claims (--judge)
 #   facts:          [templated strings] - graded by the LLM judge (only with --judge).
 #                   Templates: {leader:hazard:a,b} {score:hub:hazard} {composite:hub} {tier:hub}
 #                   {rank:hub} {drivers:hub} {freqtie:hub:hazard} {freqwindow} {snapend}
@@ -38,6 +41,7 @@ cases:
           tools: [[rank_hubs, {hazard: winter, region: Midwest}]]
           top_k: {hazard: winter, region: Midwest, k: 3, ordered: true}
           in_scope: true
+          claims_supported: true
 
   - id: miami_vs_houston
     tags: [assignment]
@@ -49,6 +53,7 @@ cases:
           hub_refs_include: [miami, houston]
           mentions: [[hurricane], [flood]]
           in_scope: true
+          claims_supported: true
           facts:
             - "{leader:hurricane:miami,houston} has the higher hurricane score ({score:miami:hurricane} for Miami vs {score:houston:hurricane} for Houston)."
             - "{leader:flood:miami,houston} has the higher flood score ({score:miami:flood} for Miami vs {score:houston:flood} for Houston)."
@@ -73,7 +78,9 @@ cases:
           hub_refs_first: dallas
           tier_mentioned: dallas
           mentions: [[severe storm, hail, tornado], [flood]]
+          no_phrases: ["absolute terms"]
           in_scope: true
+          claims_supported: true
           facts:
             - "Dallas's composite score is {composite:dallas}, tier {tier:dallas}, rank {rank:dallas} of 22, so the premise that it is 'high' should be qualified."
             - "Its largest contributors are {drivers:dallas}."
@@ -90,10 +97,13 @@ cases:
       - user: What about the South?
         checks:
           top_k: {hazard: winter, region: South, k: 3, ordered: true}
+          claims_supported: true
       - user: Why is the top one there so exposed?
         checks:
           hub_refs_first: {top_of: {hazard: winter, region: South}}
           mentions: [[winter, snow, ice, cold]]
+          no_phrases: ["absolute terms", "absolute-sounding", "in absolute"]
+          claims_supported: true
 
   - id: followup_compare_pronoun
     tags: [followup]
@@ -182,6 +192,7 @@ cases:
       - user: How exactly is the risk score calculated?
         checks:
           tools_any: [get_methodology]
+          claims_supported: true
           mentions:
             - [FEMA, National Risk Index]
             - [observed, Open-Meteo, ERA5, history]
@@ -190,6 +201,18 @@ cases:
           facts:
             - "Observed disruption-day frequencies are averaged over the full calendar years {freqwindow} only; partial-year data is excluded from the frequency calculation."
             - "The daily data snapshot extends to {snapend}, but data after the last full calendar year is not used for the frequency score (if the answer mentions the snapshot range at all, it must not present it as the frequency window)."
+
+  - id: methodology_followup
+    tags: [explainability, followup]
+    dev: true
+    turns:
+      - user: Which hubs are most exposed to flooding?
+        checks:
+          top_k: {hazard: flood, region: all, k: 3, ordered: false}
+      - user: What counts as a heavy-rain day, and how much weight does flood get in the overall score?
+        checks:
+          tools_any: [get_methodology]
+          mentions: [["50 mm", "50.0 mm", "50mm"], ["0.2", "20%", "20 %"]]
 
   - id: live_alerts
     tags: [live]

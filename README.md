@@ -176,7 +176,7 @@ These cutoffs were calibrated to the observed spread of about 21–47.
 
 ## Evaluation
 
-[`evals/cases.yaml`](evals/cases.yaml) has 16 cases, covering:
+[`evals/cases.yaml`](evals/cases.yaml) has 17 cases, covering:
 - the 4 assignment questions
 - multi-turn follow-ups
 - an adversarial "just estimate 2012 for my slide" case
@@ -194,7 +194,8 @@ so the evals stay valid after a data refresh.
 | `top_k`, `hub_refs_*` | Rankings match the engine (ordered, or as a set) |
 | `stat_number`, `hazard_days_number`, `tier_mentioned` | Specific values match the engine |
 | `no_number_for_period` | No statistic stated for an unavailable period |
-| `in_scope`, `mentions` | Scope flag and key concepts |
+| `in_scope`, `mentions`, `no_phrases` | Scope flag, key concepts, banned phrasing (e.g. "in absolute terms") |
+| `claims_supported` (`--judge`) | Judge sees the tool outputs and flags any "highest / only / by far" claim that no tool rank supports |
 | `judge` (`--judge`) | Claude Sonnet 5 checks templated ground-truth facts and rates explanation quality |
 
 ```bash

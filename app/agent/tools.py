@@ -222,8 +222,9 @@ TOOL_DEFS: list[dict] = [
      "input_schema": _obj({"hub": {"type": "string",
                                    "description": "Hub name/id, or 'all'"}})},
     {"name": "get_methodology", "strict": True,
-     "description": "Scoring methodology: thresholds, weights, tiers, data snapshot dates and "
-                    "known limitations. Use when asked how scores work or what data is used.",
+     "description": "Scoring methodology: thresholds, weights, tiers, data windows and known "
+                    "limitations. Always call this for any question about how scores, weights, "
+                    "thresholds, tiers or date windows work, and answer from its output.",
      "input_schema": _obj({})},
 ]
 

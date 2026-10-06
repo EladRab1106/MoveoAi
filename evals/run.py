@@ -246,13 +246,16 @@ def run_checks(checks: dict, resp: ChatResponse, all_tool_outputs: list[str],
         elif name == "no_number_for_period":
             bad = numbers_attributed_to(text, str(spec))
             res[name] = (not bad, f"numbers attributed to {spec}: {bad}" if bad else "ok")
+        elif name == "no_phrases":
+            found = [ph for ph in spec if ph.lower() in low]
+            res[name] = (not found, f"found {found}" if found else "ok")
         elif name == "no_percent":
             found = re.findall(r"\d+(?:\.\d+)?\s*%", text)
             res[name] = (not found, f"found {found}" if found else "ok")
         elif name == "in_scope":
             res[name] = (a.in_scope == spec, f"expected {spec}, got {a.in_scope}")
-        elif name == "facts":
-            pass  # judged separately
+        elif name in ("facts", "claims_supported"):
+            pass  # judged separately (--judge)
         else:
             res[name] = (False, f"unknown check {name}")
     return res
@@ -304,6 +307,49 @@ def judge(question: str, resp: ChatResponse, facts: list[str]) -> tuple[bool, st
                f"{g['explanation_quality']}/{g['uncertainty_communication']}: {g['comment']}", usage
 
 
+CLAIMS_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "required": ["unsupported_claims", "comment"],
+    "properties": {
+        "unsupported_claims": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["claim", "why"],
+            "properties": {"claim": {"type": "string"}, "why": {"type": "string"}}}},
+        "comment": {"type": "string"},
+    },
+}
+
+
+def judge_claims(resp: ChatResponse, tool_outputs: list[str]) -> tuple[bool, str, dict]:
+    """Flag comparative/superlative/absolute claims the tool outputs don't directly support."""
+    evidence = "\n---\n".join(o[:6000] for o in tool_outputs)[:40000]
+    prompt = (
+        "You audit an AI analyst's answer for unsupported comparative or absolute claims.\n\n"
+        f"ANSWER:\n{resp.answer.answer}\n\nREASONING:\n" + "\n".join(resp.answer.reasoning) +
+        f"\n\nTOOL OUTPUTS (the only evidence):\n{evidence}\n\n"
+        "List every claim using words like highest, largest, lowest, most, least, top, only, "
+        "'by far', strongest, or 'in absolute terms' / 'not really exposed' that is NOT directly "
+        "supported by a rank, portfolio_rank, tied_with, or an explicit ranking/comparison in "
+        "the tool outputs, or that overstates its scope (e.g. 'highest overall' when only a "
+        "region was ranked, or 'the highest' when the value is tied). Claims that simply restate "
+        "a listed rank or compare two numbers that both appear in the outputs are supported. "
+        "Return an empty list if all such claims are supported.")
+    r = client().messages.create(
+        model=JUDGE_MODEL, max_tokens=16000,
+        output_config={"effort": "low", "format": {"type": "json_schema", "schema": CLAIMS_SCHEMA}},
+        messages=[{"role": "user", "content": prompt}])
+    usage = {"input_tokens": r.usage.input_tokens, "output_tokens": r.usage.output_tokens}
+    if r.stop_reason != "end_turn":
+        return False, f"judge error: stop_reason={r.stop_reason}", usage
+    try:
+        g = json.loads(next((b.text for b in r.content if b.type == "text"), ""))
+    except json.JSONDecodeError as exc:
+        return False, f"judge error: invalid JSON ({exc})", usage
+    bad = g["unsupported_claims"]
+    return (not bad,
+            "all comparative claims supported" if not bad else
+            "unsupported: " + "; ".join(f"'{c['claim']}' ({c['why']})" for c in bad), usage)
+
+
 # ------------------------------------------------------------------ runner
 
 
@@ -333,6 +379,11 @@ def run_case(case: dict, model: str, use_judge: bool, verbose: bool) -> dict:
         if facts and use_judge:
             ok, detail, ju = judge(turn["user"], resp, [render_fact(f) for f in facts])
             checks["judge"] = (ok, detail)
+            for k in judge_usage:
+                judge_usage[k] += ju[k]
+        if turn.get("checks", {}).get("claims_supported") and use_judge:
+            ok, detail, ju = judge_claims(resp, tool_outputs)
+            checks["claims_supported"] = (ok, detail)
             for k in judge_usage:
                 judge_usage[k] += ju[k]
         passed &= all(ok for ok, _ in checks.values())
