@@ -30,3 +30,30 @@ def test_hub_risk_and_404():
 
 def test_chat_validates_input():
     assert client.post("/api/chat", json={"messages": []}).status_code == 422
+
+
+def test_chat_without_credentials_returns_clear_502(monkeypatch):
+    from app.agent import agent
+
+    class NoCreds:
+        class beta:
+            class messages:
+                @staticmethod
+                def create(**kwargs):
+                    raise TypeError("Could not resolve authentication method. Expected one of api_key")
+
+    monkeypatch.setattr(agent, "client", lambda: NoCreds)
+    r = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 502
+    assert "ANTHROPIC_API_KEY" in r.json()["detail"]
+
+
+def test_unexpected_chat_error_is_json_500(monkeypatch):
+    from app import main
+
+    def boom(_):
+        raise RuntimeError("bug")
+    monkeypatch.setattr(main, "run_agent", boom)
+    r = TestClient(main.app, raise_server_exceptions=False).post(
+        "/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert r.status_code == 500 and r.json()["detail"] == "Unexpected server error: RuntimeError"

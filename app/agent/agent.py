@@ -98,6 +98,14 @@ def run_agent(history: list[ChatMessage], model: str | None = None) -> ChatRespo
                 raise AgentError(f"Anthropic API error {exc.status_code}: {exc.message}") from exc
             except anthropic.APIConnectionError as exc:
                 raise AgentError("Could not reach the Anthropic API") from exc
+            except anthropic.AnthropicError as exc:
+                raise AgentError(f"Anthropic SDK error: {exc}") from exc
+            except TypeError as exc:
+                # The SDK raises a plain TypeError when no credentials are configured at all.
+                if "authentication method" in str(exc):
+                    raise AgentError("Anthropic API key is not configured on the server "
+                                     "(set ANTHROPIC_API_KEY)") from exc
+                raise
 
             usage["input_tokens"] += response.usage.input_tokens
             usage["output_tokens"] += response.usage.output_tokens

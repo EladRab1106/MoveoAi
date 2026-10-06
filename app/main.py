@@ -14,7 +14,8 @@ from fastapi.responses import FileResponse
 
 from app.agent.agent import AgentError, run_agent
 from app.agent.schemas import ChatRequest, ChatResponse
-from app.config import ANTHROPIC_MODEL, CRON_SECRET, ROOT_DIR, scoring_config
+from app.config import (ALERT_WEBHOOK_URL, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, CRON_SECRET,
+                        ROOT_DIR, scoring_config)
 from app.hubs import HubNotFound, load_hubs
 from app.scoring import engine
 from app.scoring.models import HubRisk
@@ -29,7 +30,10 @@ app = FastAPI(
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "model": ANTHROPIC_MODEL, "snapshot": engine.snapshot_meta(),
-            "hubs": len(load_hubs())}
+            "hubs": len(load_hubs()),
+            # presence only, never the value
+            "config": {"anthropic_api_key": bool(ANTHROPIC_API_KEY), "cron_secret": bool(CRON_SECRET),
+                       "alert_webhook": bool(ALERT_WEBHOOK_URL)}}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -38,6 +42,10 @@ def chat(req: ChatRequest) -> ChatResponse:
         return run_agent(req.messages)
     except AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # never return a bare 500; log the traceback for debugging
+        logging.exception("chat failed")
+        raise HTTPException(status_code=500,
+                            detail=f"Unexpected server error: {exc.__class__.__name__}") from exc
 
 
 @app.get("/api/hubs")
