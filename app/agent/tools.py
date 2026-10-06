@@ -72,7 +72,26 @@ def get_hub_risk(hub: str) -> dict:
     data = r.model_dump(exclude={"active_alerts", "alert_bump", "base_score"})
     data["portfolio_size"] = len(load_hubs())
     data["tier_thresholds"] = scoring_config()["tiers"]
+    data["contributions_ranked"] = _ranked_contributions(r)
     return data
+
+
+def _ranked_contributions(r: HubRisk) -> dict:
+    """This hub's hazards ordered by points contributed to its composite (1 = largest), so
+    "largest/smallest contributor" claims come from the tool. Presentation only: the
+    contributions themselves are the engine's."""
+    ranks = engine.competition_ranks({h.hazard: h.contribution for h in r.hazards})
+    ordered = sorted(r.hazards, key=lambda h: (-h.contribution, h.hazard))
+    rows = [{"rank": ranks[h.hazard][0], "hazard": h.hazard, "contribution_points": h.contribution,
+             **({"tied_with": ranks[h.hazard][1]} if ranks[h.hazard][1] else {})} for h in ordered]
+    top, bottom = rows[0]["rank"], rows[-1]["rank"]
+    return {
+        "order": rows,
+        "largest": [x["hazard"] for x in rows if x["rank"] == top],
+        "smallest": [x["hazard"] for x in rows if x["rank"] == bottom],
+        "note": "Within this hub only, ranked by points contributed to its composite score; "
+                "tied values share a rank.",
+    }
 
 
 def compare_hubs(hubs: list[str]) -> dict:

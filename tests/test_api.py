@@ -66,3 +66,16 @@ def test_methodology_separates_snapshot_range_from_frequency_window():
     assert "full calendar years 2021-2025 only" in w["frequency_window"]["rule"]
     assert w["snapshot_range"]["start"] == "2021-01-01"
     assert w["snapshot_range"]["end"] > "2025-12-31"   # snapshot extends past the frequency window
+
+
+def test_hub_risk_tool_ranks_contributions_without_changing_scores():
+    from app.agent.tools import get_hub_risk
+    from app.scoring import engine
+    d = get_hub_risk("memphis")
+    c = d["contributions_ranked"]
+    pts = [x["contribution_points"] for x in c["order"]]
+    assert pts == sorted(pts, reverse=True)
+    by_hz = {h.hazard: h.contribution for h in engine.get_hub_risk("memphis").hazards}
+    assert {x["hazard"]: x["contribution_points"] for x in c["order"]} == by_hz   # same numbers
+    assert c["largest"] == [c["order"][0]["hazard"]] and c["smallest"][-1] == c["order"][-1]["hazard"]
+    assert d["composite_score"] == engine.get_hub_risk("memphis").composite_score

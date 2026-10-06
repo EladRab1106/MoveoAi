@@ -22,7 +22,8 @@
 #   no_number_for_period: "2012"        - no number stated in a sentence about that period
 #                                         (labeled figures for other periods are fine)
 #   in_scope:       bool
-#   no_phrases:     [phrases]           - none may appear (case-insensitive)
+#   no_phrases:     [phrases]           - none may appear (case-insensitive); entries starting
+#                                         with "re:" are regexes (e.g. unsupported "only ... worth")
 #   claims_supported: true              - judge (with tool outputs) finds no unsupported
 #                                         highest/lowest/most/"absolute terms" claims (--judge)
 #   facts:          [templated strings] - graded by the LLM judge (only with --judge).
@@ -41,6 +42,7 @@ cases:
           tools: [[rank_hubs, {hazard: winter, region: Midwest}]]
           top_k: {hazard: winter, region: Midwest, k: 3, ordered: true}
           in_scope: true
+          no_phrases: ["re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}(\\bnot\\b|n['’]t\\b)[^.]{0,30}\\bworth\\b"]
           claims_supported: true
 
   - id: miami_vs_houston
@@ -97,12 +99,13 @@ cases:
       - user: What about the South?
         checks:
           top_k: {hazard: winter, region: South, k: 3, ordered: true}
+          no_phrases: ["re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}(\\bnot\\b|n['’]t\\b)[^.]{0,30}\\bworth\\b"]
           claims_supported: true
       - user: Why is the top one there so exposed?
         checks:
           hub_refs_first: {top_of: {hazard: winter, region: South}}
           mentions: [[winter, snow, ice, cold]]
-          no_phrases: ["absolute terms", "absolute-sounding", "in absolute"]
+          no_phrases: ["absolute terms", "absolute-sounding", "in absolute", "re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}(\\bnot\\b|n['’]t\\b)[^.]{0,30}\\bworth\\b"]
           claims_supported: true
 
   - id: followup_compare_pronoun

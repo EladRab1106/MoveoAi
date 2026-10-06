@@ -247,7 +247,8 @@ def run_checks(checks: dict, resp: ChatResponse, all_tool_outputs: list[str],
             bad = numbers_attributed_to(text, str(spec))
             res[name] = (not bad, f"numbers attributed to {spec}: {bad}" if bad else "ok")
         elif name == "no_phrases":
-            found = [ph for ph in spec if ph.lower() in low]
+            found = [ph for ph in spec if (re.search(ph[3:], text, re.IGNORECASE | re.DOTALL)
+                                           if ph.startswith("re:") else ph.lower() in low)]
             res[name] = (not found, f"found {found}" if found else "ok")
         elif name == "no_percent":
             found = re.findall(r"\d+(?:\.\d+)?\s*%", text)
@@ -320,19 +321,22 @@ CLAIMS_SCHEMA = {
 
 
 def judge_claims(resp: ChatResponse, tool_outputs: list[str]) -> tuple[bool, str, dict]:
-    """Flag comparative/superlative/absolute claims the tool outputs don't directly support."""
+    """Flag comparative/superlative/absolute claims that are false or overstated given the
+    tool outputs (correct comparisons of listed values are fine)."""
     evidence = "\n---\n".join(o[:6000] for o in tool_outputs)[:40000]
     prompt = (
-        "You audit an AI analyst's answer for unsupported comparative or absolute claims.\n\n"
+        "You audit an AI analyst's answer for false or overstated comparative claims.\n\n"
         f"ANSWER:\n{resp.answer.answer}\n\nREASONING:\n" + "\n".join(resp.answer.reasoning) +
         f"\n\nTOOL OUTPUTS (the only evidence):\n{evidence}\n\n"
-        "List every claim using words like highest, largest, lowest, most, least, top, only, "
-        "'by far', strongest, or 'in absolute terms' / 'not really exposed' that is NOT directly "
-        "supported by a rank, portfolio_rank, tied_with, or an explicit ranking/comparison in "
-        "the tool outputs, or that overstates its scope (e.g. 'highest overall' when only a "
-        "region was ranked, or 'the highest' when the value is tied). Claims that simply restate "
-        "a listed rank or compare two numbers that both appear in the outputs are supported. "
-        "Return an empty list if all such claims are supported.")
+        "Check every comparative, superlative or absolute claim (e.g. highest, largest, "
+        "lowest, most, least, top, only, 'by far', 'mainly', 'lifts it above', 'in absolute "
+        "terms') against the tool outputs. Flag a claim ONLY if it is (a) false given the tool "
+        "values, (b) overstated in scope (e.g. 'highest overall' when only a region was ranked, "
+        "'the highest' when the value is tied, a causal 'mainly X' that the numbers contradict), "
+        "or (c) an absolute judgement the outputs can't support. Do NOT flag a comparison that "
+        "the tool values directly support (e.g. 41.1 > 31.5, or the largest of values that are "
+        "all listed), a restated rank, or a qualitative summary consistent with the numbers. "
+        "Return an empty list if no claim is false or overstated.")
     r = client().messages.create(
         model=JUDGE_MODEL, max_tokens=16000,
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": CLAIMS_SCHEMA}},

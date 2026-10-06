@@ -144,6 +144,8 @@ by the chat path.
     question, and answer from its output, not from memory
   - use superlatives only when a tool rank supports them, scoped to what was ranked; never
     rank values yourself or describe a hub "in absolute terms"
+  - resolve "the top one" to the most recent ranking and name the hub; cite component values
+    for both hubs when explaining a ranking gap; no unsolicited "only X are worth it" verdicts
 - **Relative scoring.** Min-max normalization across the portfolio makes the scores useful for
   *ranking within this network*, which is what the investment decision needs. It is not an
   absolute risk measure, and adding or removing hubs shifts the scores. This is documented
@@ -184,7 +186,8 @@ How the eval set evolved during development (all runs are kept in `evals/results
 | Adversarial case after prompt + check fix | 1 | 1/1 | Agent now also declines to suggest a proxy for the missing year |
 | Full set + judge | 16 | 14/16 + 2/2 rerun | See above |
 | `methodology` after tool fix | 1 | 1/1 | `get_methodology` now separates `snapshot_range` (2021-01-01 to the latest ingest) from `frequency_window` (full calendar years 2021–2025 only). The answer had described the frequency window as the whole snapshot; the eval now checks for the full-year window (string check + 2 judge facts) |
-| Claim-discipline + methodology rules | 6 (+ follow-up ×5) | 5/5 on final prompt; follow-up case 2/3 on final prompt | New prompt rules: always call `get_methodology` for scoring/threshold/window questions; superlatives ("highest", "only", "by far") only when a tool rank supports them, never "in absolute terms", never self-derived rankings. New checks: `claims_supported` (judge sees the tool outputs and flags unsupported superlatives) and `no_phrases`, plus a new `methodology_followup` case. The judge caught real errors along the way, e.g. "Charlotte and Atlanta carry the highest ice-storm percentiles" (Houston 47.9 > Atlanta 44.1). Remaining failure mode: an occasional self-derived superlative (e.g. "winter is the smallest contributor"), which the check now catches |
+| Claim-discipline + methodology rules | 6 (+ follow-up ×5) | 5/5 on final prompt; follow-up case 2/3 on final prompt | New prompt rules: always call `get_methodology` for scoring/threshold/window questions; superlatives ("highest", "only", "by far") only when a tool rank supports them, never "in absolute terms", never self-derived rankings. New checks: `claims_supported` (judge sees the tool outputs and flags unsupported superlatives) and `no_phrases`, plus a new `methodology_followup` case. The judge caught real errors along the way, e.g. "Charlotte and Atlanta carry the highest ice-storm percentiles" (Houston 47.9 > Atlanta 44.1). This exposed an occasional self-derived superlative (e.g. "winter is the smallest contributor") |
+| Follow-up stability fixes | `followup_region_switch` ×5 per round | 0/5 → 4/5 → **5/5** | `get_hub_risk` now returns `contributions_ranked` (presentation only, scoring unchanged), so "largest/smallest contributor" comes from the tool. The judge was recalibrated to flag false or overstated claims, not correct comparisons of listed values. Prompt changes: resolve "the top one" to the most recent ranking and name the hub; cite component values for both hubs when explaining why one ranks above another; no unsolicited spending verdicts in ranking summaries. A regex `no_phrases` check catches "only … worth" verdicts |
 
 ## 6. Known limitations and next steps
 

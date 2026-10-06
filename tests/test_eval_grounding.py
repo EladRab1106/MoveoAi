@@ -43,3 +43,24 @@ def test_durations_are_not_statistics():
     s = "Label it 2025 rather than a stand-in for 2012, a year 13 years earlier."
     assert numbers_attributed_to(s, "2012") == []
     assert numbers_attributed_to("2012 had 40 days of snow.", "2012") == ["40"]
+
+
+def test_no_phrases_regex_catches_spending_verdicts():
+    import yaml
+    from pathlib import Path
+    from evals.run import run_checks
+    from app.agent.schemas import ChatResponse, LLMAnswer
+    cases = yaml.safe_load(Path("evals/cases.yaml").read_text())["cases"]
+    spec = next(c for c in cases if c["id"] == "followup_region_switch")["turns"][1]["checks"]["no_phrases"]
+
+    def check(text):
+        ans = LLMAnswer(answer=text, hub_refs=[], reasoning=[], assumptions=[], data_sources=[],
+                        confidence="high", confidence_reason="", follow_up_suggestions=[], in_scope=True)
+        resp = ChatResponse(answer=ans, assistant_message="", hubs=[], tool_calls=[], model="m",
+                            latency_ms=0, usage={})
+        return run_checks({"no_phrases": spec}, resp, [], "")["no_phrases"][0]
+
+    assert not check("Memphis and Charlotte are the only South candidates worth a look.")
+    assert not check("The rest aren't worth winter spend.")
+    assert check("Memphis (18.0) and Charlotte (17.4) rank highest on winter in the South.")
+    assert not check("The remaining hubs aren’t worth it.")   # typographic apostrophe
