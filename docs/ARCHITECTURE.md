@@ -179,6 +179,7 @@ How the eval set evolved during development (all runs are kept in `evals/results
 | Dev subset after those fixes | 7 | 6/7 | The failure came from an over-strict check (any % banned); the agent refused 2012 correctly |
 | Adversarial case after prompt + check fix | 1 | 1/1 | Agent now also declines to suggest a proxy for the missing year |
 | Full set + judge | 16 | 14/16 + 2/2 rerun | See above |
+| `methodology` after tool fix | 1 | 1/1 | `get_methodology` now separates `snapshot_range` (2021-01-01 to the latest ingest) from `frequency_window` (full calendar years 2021–2025 only). The answer had described the frequency window as the whole snapshot; the eval now checks for the full-year window (string check + 2 judge facts) |
 
 ## 6. Known limitations and next steps
 
@@ -191,7 +192,3 @@ How the eval set evolved during development (all runs are kept in `evals/results
 - **Streaming responses.** Stream to the UI (SSE) to cut perceived latency.
 - **Alert delivery.** Per-user alert subscriptions; deduplicate alerts while a single NWS
   event is still active.
-- **Methodology wording.** `get_methodology` returns the snapshot's date range but not the
-  rule that frequency uses full calendar years only (2021–2025). The agent can therefore
-  describe the frequency window as the whole snapshot. The scores themselves are unaffected.
-  The fix is to add that rule to the tool output.

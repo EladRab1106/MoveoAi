@@ -127,8 +127,25 @@ def get_active_alerts(hub: str) -> dict:
 
 def get_methodology() -> dict:
     cfg = scoring_config()
+    meta = engine.snapshot_meta()
+    years = engine.frequency_years()
+    span = f"{years[0]}-{years[-1]}" if years else "none"
     return {
-        "snapshot": engine.snapshot_meta(),
+        "data_windows": {
+            "snapshot_range": {
+                "start": meta["weather_start"], "end": meta["weather_end"],
+                "used_for": "weather_stat queries (any date range inside it)",
+            },
+            "frequency_window": {
+                "full_calendar_years": years,
+                "rule": f"Observed disruption days/yr (the frequency half of each hazard score) "
+                        f"are averaged over the full calendar years {span} only. Partial years "
+                        f"(e.g. {meta['weather_end'][:4]} to date) are excluded so seasonal "
+                        f"coverage is comparable across hubs.",
+            },
+            "fema_nri_version": meta["nri_version"],
+            "ingested_at": meta["ingested_at"],
+        },
         "disruption_thresholds": cfg["disruption_thresholds"],
         "hazards": cfg["hazards"],
         "composite_weights": cfg["composite_weights"],

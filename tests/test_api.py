@@ -57,3 +57,12 @@ def test_unexpected_chat_error_is_json_500(monkeypatch):
     r = TestClient(main.app, raise_server_exceptions=False).post(
         "/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
     assert r.status_code == 500 and r.json()["detail"] == "Unexpected server error: RuntimeError"
+
+
+def test_methodology_separates_snapshot_range_from_frequency_window():
+    from app.agent.tools import get_methodology
+    w = get_methodology()["data_windows"]
+    assert w["frequency_window"]["full_calendar_years"] == [2021, 2022, 2023, 2024, 2025]
+    assert "full calendar years 2021-2025 only" in w["frequency_window"]["rule"]
+    assert w["snapshot_range"]["start"] == "2021-01-01"
+    assert w["snapshot_range"]["end"] > "2025-12-31"   # snapshot extends past the frequency window

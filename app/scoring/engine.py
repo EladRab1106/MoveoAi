@@ -223,6 +223,12 @@ def snapshot_meta() -> dict[str, str]:
     return _snapshot()[4]
 
 
+def frequency_years() -> list[int]:
+    """Full calendar years used for the observed-frequency KPI (common to all hubs)."""
+    per_hub = [set(full_years(days)) for days in _snapshot()[0].values()]
+    return sorted(set.intersection(*per_hub)) if per_hub else []
+
+
 @lru_cache
 def _base_scores() -> dict[str, HubRisk]:
     weather, nri, nri_freq, decl, _ = _snapshot()

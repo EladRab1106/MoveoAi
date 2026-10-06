@@ -1,0 +1,103 @@
+{
+ "model": "claude-opus-5",
+ "judge": true,
+ "run_at": "2026-10-06T15:36:04.640048",
+ "snapshot": {
+  "weather_start": "2021-01-01",
+  "weather_end": "2026-09-29",
+  "nri_version": "December 2025",
+  "ingested_at": "2026-10-06T10:43:30+00:00"
+ },
+ "passed": 1,
+ "total": 1,
+ "usage": {
+  "input_tokens": 10283,
+  "output_tokens": 1130
+ },
+ "judge_usage": {
+  "input_tokens": 1910,
+  "output_tokens": 253
+ },
+ "est_cost_usd": 0.086,
+ "results": [
+  {
+   "id": "methodology",
+   "tags": [
+    "explainability"
+   ],
+   "passed": true,
+   "turns": [
+    {
+     "user": "How exactly is the risk score calculated?",
+     "answer": {
+      "answer": "The composite Weather Disruption Risk Score (0-100) is a weighted blend of five hazard sub-scores:\n\n**Composite weights:** winter 0.25, hurricane 0.20, flood 0.20, severe_storm 0.20, heat 0.15.\n\n**Each hazard sub-score** blends an observed-frequency half (disruption days/yr from Open-Meteo/ERA5 daily history) with a long-term half (FEMA NRI percentiles, December 2025 version):\n- Winter storms & extreme cold: NRI hazards WNTW + ISTM (mean), frequency 0.6 / long-term 0.4\n- Hurricanes & tropical wind: HRCN (max), frequency 0.0 / long-term 1.0 (NRI annualized-frequency weight 0.5)\n- Flooding & extreme rainfall: IFLD + CFLD (max), frequency 0.5 / long-term 0.5\n- Extreme heat: HWAV (max), frequency 0.6 / long-term 0.4\n- Tornadoes, hail & severe wind: TRND + HAIL + SWND (mean), frequency 0.4 / long-term 0.6\n\n**Observed-day thresholds:** winter = snowfall \u2265 2.5 cm or minimum temp \u2264 \u221218.0 \u00b0C; wind = gust \u2265 70 km/h (feeds both hurricane and severe_storm frequency); heavy rain = precipitation \u2265 50 mm; heat = max temp \u2265 38.0 \u00b0C. Disruption days/yr are averaged over the five full calendar years 2021-2025 only; partial years (2026 to date) are excluded so seasonal coverage is comparable.\n\n**Live adjustment:** active NWS alerts add +5 per severe alert and +10 per extreme alert, capped at +15.\n\n**Tiers:** Critical \u2265 50, High \u2265 40, Moderate \u2265 30, Low below 30. Tied values share a rank (1, 1, 3) and are listed in `tied_with`. FEMA disaster counts shown alongside are major-disaster (DR) declarations only and are supporting evidence, not score inputs.",
+      "hub_refs": [],
+      "reasoning": [
+       "Retrieved the scoring methodology directly from get_methodology.",
+       "Reported composite weights, per-hazard NRI mappings and frequency/long-term splits as returned.",
+       "Included the disruption-day thresholds, the 2021-2025 frequency window, the active-alert bump and tier cut-offs."
+      ],
+      "assumptions": [
+       "Describes only what the methodology tool returns; no additional criteria inferred.",
+       "Scores are relative to this 22-hub portfolio, not absolute probabilities."
+      ],
+      "data_sources": [
+       "scoring_engine",
+       "open_meteo_history",
+       "fema_nri",
+       "nws_active_alerts"
+      ],
+      "confidence": "high",
+      "confidence_reason": "Methodology is returned verbatim by the tool, though the underlying data has known limits (point locations, ~5-year frequency window).",
+      "follow_up_suggestions": [
+       "Which hubs rank highest on the composite score?",
+       "Can you show the full score breakdown for a specific hub?",
+       "Which hubs have active NWS alerts bumping their score right now?"
+      ],
+      "in_scope": true
+     },
+     "tool_calls": [
+      {
+       "name": "get_methodology",
+       "input": {},
+       "ok": true,
+       "duration_ms": 57,
+       "error": null
+      }
+     ],
+     "latency_s": 15.2,
+     "checks": {
+      "schema": [
+       true,
+       "validated"
+      ],
+      "grounded": [
+       true,
+       "all numbers traceable"
+      ],
+      "tools_any": [
+       true,
+       "ok"
+      ],
+      "mentions": [
+       true,
+       "ok"
+      ],
+      "judge": [
+       true,
+       "facts [True, True], quality 5/4: The answer accurately and clearly reproduces the methodology, including weights, hazard mappings, thresholds, and the 2021-2025 frequency window, matching the ground-truth facts. It correctly avoids conflating the data snapshot with the frequency window. Minor deduction for not explicitly mentioning the snapshot date discrepancy, though this isn't strictly required since the answer never conflates the two."
+      ]
+     }
+    }
+   ],
+   "usage": {
+    "input_tokens": 10283,
+    "output_tokens": 1130
+   },
+   "judge_usage": {
+    "input_tokens": 1910,
+    "output_tokens": 253
+   }
+  }
+ ]
+}

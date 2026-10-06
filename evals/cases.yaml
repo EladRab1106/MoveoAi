@@ -24,7 +24,7 @@
 #   in_scope:       bool
 #   facts:          [templated strings] - graded by the LLM judge (only with --judge).
 #                   Templates: {leader:hazard:a,b} {score:hub:hazard} {composite:hub} {tier:hub}
-#                   {rank:hub} {drivers:hub} {freqtie:hub:hazard}
+#                   {rank:hub} {drivers:hub} {freqtie:hub:hazard} {freqwindow} {snapend}
 # Every turn also gets: schema (implicit) and grounded (numbers traceable to tool outputs).
 
 cases:
@@ -181,7 +181,15 @@ cases:
     turns:
       - user: How exactly is the risk score calculated?
         checks:
-          mentions: [[FEMA, National Risk Index], [observed, Open-Meteo, ERA5, history], [weight]]
+          tools_any: [get_methodology]
+          mentions:
+            - [FEMA, National Risk Index]
+            - [observed, Open-Meteo, ERA5, history]
+            - [weight]
+            - ["2021–2025", "2021-2025", "2021 to 2025", "2021 through 2025", "2021—2025", "2021 – 2025", "2021 - 2025"]
+          facts:
+            - "Observed disruption-day frequencies are averaged over the full calendar years {freqwindow} only; partial-year data is excluded from the frequency calculation."
+            - "The daily data snapshot extends to {snapend}, but data after the last full calendar year is not used for the frequency score (if the answer mentions the snapshot range at all, it must not present it as the frequency window)."
 
   - id: live_alerts
     tags: [live]

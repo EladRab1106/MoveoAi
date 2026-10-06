@@ -60,6 +60,11 @@ def _hazard(hub_id: str, hazard: str):
 def render_fact(template: str) -> str:
     def sub(m: re.Match) -> str:
         kind, *args = m.group(1).split(":")
+        if kind == "freqwindow":
+            years = engine.frequency_years()
+            return f"{years[0]}–{years[-1]}"
+        if kind == "snapend":
+            return engine.snapshot_meta()["weather_end"]
         if kind == "leader":
             hazard, hubs = args[0], args[1].split(",")
             best = max(hubs, key=lambda h: _hazard(h, hazard).score)
