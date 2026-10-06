@@ -121,7 +121,7 @@ def weather_stat(hub: str, metric: str, year: int | None = None, start_date: str
     s = date.fromisoformat(start_date) if start_date else None
     e = date.fromisoformat(end_date) if end_date else None
     stat = engine.weather_stat(hub, metric, year=year, start=s, end=e)
-    return {**stat.model_dump(), "source": "Open-Meteo ERA5 reanalysis, hub point location"}
+    return {**stat.model_dump(), "source": "Open-Meteo Historical API (default model selection), hub point location"}
 
 
 def get_active_alerts(hub: str) -> dict:
@@ -179,7 +179,8 @@ def get_methodology() -> dict:
             "emergency (EM) declarations, e.g. for sheltering evacuees, are excluded.",
         ],
         "known_limitations": [
-            "Each hub is one point; ERA5 reanalysis (~25 km grid) smooths local extremes.",
+            "Each hub is one point; gridded model data from Open-Meteo Historical smooths local "
+            "extremes.",
             "Observed frequency uses only the last ~5 full years; rare events are under-sampled, "
             "which is why FEMA NRI long-term percentiles are blended in.",
             "Scores are relative to this 22-hub portfolio, not absolute probabilities.",

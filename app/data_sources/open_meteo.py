@@ -1,4 +1,4 @@
-"""Open-Meteo Historical Weather API (ERA5 reanalysis). Free, no key.
+"""Open-Meteo Historical Weather API (default model selection). Free, no key.
 
 https://open-meteo.com/en/docs/historical-weather-api
 """

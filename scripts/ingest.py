@@ -22,7 +22,7 @@ def history_range() -> tuple[date, date]:
     years = scoring_config()["history"]["years"]
     today = date.today()
     start = date(today.year - years, 1, 1)
-    end = today - timedelta(days=7)  # ERA5 archive lags ~5 days
+    end = today - timedelta(days=7)  # the historical archive lags a few days
     return start, end
 
 
