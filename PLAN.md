@@ -1,5 +1,10 @@
 # Weather Risk Intelligence Agent: Plan
 
+> This is the plan written at the start of the session and kept for reference. The build
+> differs in a few places: `app/main.py` became the zero-config Vercel entrypoint (no
+> `api/index.py`), the model is `claude-opus-5`, and there's a 16-case eval set. See
+> [README.md](README.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what was built.
+
 ## 1. Goal
 Build an agent that helps logistics analysts decide which US distribution hubs are most exposed to weather disruption. It must:
 - gather real data from public APIs,

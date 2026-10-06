@@ -34,7 +34,7 @@ The data snapshot (`data/weather.db`) is committed, so the app runs without fetc
 |---|---|
 | `uvicorn app.main:app --reload` | API + chat UI on http://localhost:8000 (API docs at `/docs`) |
 | `python -m scripts.ask "your question"` | Ask the agent from the terminal (prints the full JSON response) |
-| `pytest` | 43 unit/API tests (scoring math, ties, grounding checker, alerts). No API key needed |
+| `pytest` | 45 unit/API tests (scoring math, ties, grounding checker, alerts). No API key needed |
 | `python -m evals.run --dev` | 7-case eval subset against the live agent (~$0.90) |
 | `python -m evals.run --judge` | Full 16-case eval + LLM-judge fact checks (~$2) |
 | `python -m scripts.ingest` | Rebuild the data snapshot from the public APIs (~10 min; Open-Meteo rate limits) |
@@ -203,8 +203,10 @@ python -m evals.run --tags assignment # the 4 assignment questions
 python -m evals.run --judge           # full set + judge; results saved to evals/results/
 ```
 
-Latest results are in [`evals/results/`](evals/results/) and summarized in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#evaluation-results).
+**Latest:** 16/16 cases pass. Every number in every answer traces to tool output. About 17 s
+per turn and about $1.80 per full run. Details are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#5-evaluation-results); raw runs are in
+[`evals/results/`](evals/results/).
 
 ---
 

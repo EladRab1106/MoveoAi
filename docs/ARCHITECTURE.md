@@ -106,7 +106,7 @@ data/                     hubs.yaml, weather.db (snapshot)
 public/index.html         UI
 evals/                    cases.yaml, run.py, results/*.json
 scripts/                  ingest.py, ask.py
-tests/                    43 offline tests
+tests/                    45 offline tests
 ```
 
 **Layering:** `data_sources → storage → scoring → agent/alerts → main`. Each layer only
@@ -133,7 +133,7 @@ by the chat path.
 - **Hand-written tool loop instead of the SDK tool runner.** We need per-call traces (shown in
   the UI and used by the evals), parallel execution, one schema-repair retry, and explicit
   refusal handling.
-- **Model: `claude-opus-5` at `medium` effort.** About 15–20 s per turn in testing. Effort is
+- **Model: `claude-opus-5` at `medium` effort.** About 16–20 s per turn in testing (p50 17.2 s). Effort is
   configurable; `low` would trade explanation depth for speed.
 - **The prompt rules were driven by evals.** These rules were added after reading real outputs:
   - describe thresholds only as the tools return them
@@ -150,13 +150,35 @@ by the chat path.
 
 ## 5. Evaluation results
 
-| Run | Model | Cases | Result | Latency p50 / p95 | Cost |
-|---|---|---|---|---|---|
-| Assignment questions (initial) | claude-opus-5 | 4 | 4/4 | 30.2 s / 30.7 s | $0.34 |
-| Dev subset, after declaration/tie/rule fixes | claude-opus-5 + Sonnet 5 judge | 7 | 6/7: one failure, a too-strict check, then fixed | 18.5 s / 21.7 s | $0.89 |
-| Adversarial case after prompt + check fix | claude-opus-5 | 1 | 1/1 | 20.7 s | $0.11 |
+**Final: 16/16 cases pass** on `claude-opus-5` (effort `medium`), with the Claude Sonnet 5 judge.
+The full run (`evals/results/20261006-152249.json`) completed 14/16. All 14 passed every
+check; the other 2 (`methodology`, `live_alerts`) hit an API credit limit mid-run and never
+reached the agent. They were rerun alone and passed (`evals/results/20261006-152705.json`).
 
-Each run's full JSON is in `evals/results/`.
+| Check | Result |
+|---|---|
+| Numbers grounded in tool outputs | 19/19 turns |
+| Schema valid | 19/19 turns |
+| Rankings match the engine (`top_k`) | 5/5 |
+| Required tool calls (assignment questions) | 4/4 |
+| Judge fact checks + explanation quality | 2/2 |
+| Scope flag / key concepts / no number for a missing period | 5/5 · 9/9 · 1/1 |
+| Engine values (stat %, days/yr, tier) | 4/4 |
+
+| | Full run | Rerun (2 cases) |
+|---|---|---|
+| Latency per turn, p50 / p95 | 17.2 s / 17.9 s | 19.4 s / 22.6 s |
+| Tokens (in / out) | 225k / 20k | 20k / 2k |
+| Estimated cost | $1.64 | $0.15 |
+
+How the eval set evolved during development (all runs are kept in `evals/results/`):
+
+| Run | Cases | Result | Note |
+|---|---|---|---|
+| Assignment questions, first live run | 4 | 4/4 | Reading the answers exposed 3 issues: evacuee "hurricane" declarations, ties called "highest", an invented "snow-depth" rule |
+| Dev subset after those fixes | 7 | 6/7 | The failure came from an over-strict check (any % banned); the agent refused 2012 correctly |
+| Adversarial case after prompt + check fix | 1 | 1/1 | Agent now also declines to suggest a proxy for the missing year |
+| Full set + judge | 16 | 14/16 + 2/2 rerun | See above |
 
 ## 6. Known limitations and next steps
 
@@ -169,3 +191,7 @@ Each run's full JSON is in `evals/results/`.
 - **Streaming responses.** Stream to the UI (SSE) to cut perceived latency.
 - **Alert delivery.** Per-user alert subscriptions; deduplicate alerts while a single NWS
   event is still active.
+- **Methodology wording.** `get_methodology` returns the snapshot's date range but not the
+  rule that frequency uses full calendar years only (2021–2025). The agent can therefore
+  describe the frequency window as the whole snapshot. The scores themselves are unaffected.
+  The fix is to add that rule to the tool output.

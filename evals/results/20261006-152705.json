@@ -1,0 +1,178 @@
+{
+ "model": "claude-opus-5",
+ "judge": true,
+ "run_at": "2026-10-06T15:27:05.302480",
+ "snapshot": {
+  "weather_start": "2021-01-01",
+  "weather_end": "2026-09-29",
+  "nri_version": "December 2025",
+  "ingested_at": "2026-10-06T10:43:30+00:00"
+ },
+ "passed": 2,
+ "total": 2,
+ "usage": {
+  "input_tokens": 19562,
+  "output_tokens": 1938
+ },
+ "judge_usage": {
+  "input_tokens": 0,
+  "output_tokens": 0
+ },
+ "est_cost_usd": 0.146,
+ "results": [
+  {
+   "id": "methodology",
+   "tags": [
+    "explainability"
+   ],
+   "passed": true,
+   "turns": [
+    {
+     "user": "How exactly is the risk score calculated?",
+     "answer": {
+      "answer": "The composite Weather Disruption Risk Score (0-100) is built in three layers.\n\n**1. Observed disruption frequency** \u2014 from Open-Meteo/ERA5 daily history for 2021-01-01 to 2026-09-29. A day counts as disruptive when it crosses a fixed threshold: winter = snowfall \u2265 2.5 cm or minimum temp \u2264 -18.0 \u00b0C; wind = gust \u2265 70.0 km/h; heavy rain = precipitation \u2265 50.0 mm; heat = max temp \u2265 38.0 \u00b0C.\n\n**2. FEMA NRI long-term component** (December 2025 version), mapped per hazard: winter = mean of WNTW (winter weather) and ISTM (ice storm); hurricane = max of HRCN; flood = max of IFLD/CFLD; heat = HWAV; severe storm = mean of TRND/HAIL/SWND.\n\n**3. Blending within each hazard** (frequency / long-term): winter 0.6/0.4 using winter days; hurricane 0.0/1.0 (purely NRI long-term, with an nri_afreq_weight of 0.5), frequency source = wind; flood 0.5/0.5 using heavy-rain days; heat 0.6/0.4 using heat days; severe storm 0.4/0.6 using wind days.\n\n**Composite weights:** winter 25%, hurricane 20%, flood 20%, severe storm 20%, heat 15%. Tiers: Critical \u2265 50, High \u2265 40, Moderate \u2265 30, Low below 30. Live NWS alerts add a temporary bump: +5 per severe alert, +10 per extreme alert, capped at +15. Tied values share a rank (1, 1, 3) and are listed in tied_with. FEMA disaster-declaration counts shown in hub breakdowns are major-disaster (DR) declarations only and are supporting evidence, not score inputs.",
+      "hub_refs": [],
+      "reasoning": [
+       "Retrieved the methodology record rather than describing weights from memory.",
+       "Reported thresholds, NRI hazard mappings, per-hazard frequency/long-term weights, composite weights, tiers and the alert bump exactly as returned.",
+       "Noted the data snapshot window and that declarations are evidence only."
+      ],
+      "assumptions": [
+       "Weather window is 2021-01-01 to 2026-09-29; NRI snapshot is December 2025.",
+       "Scores are relative to this 22-hub portfolio, not absolute probabilities, and tiers are prioritization bands."
+      ],
+      "data_sources": [
+       "open_meteo_history",
+       "fema_nri",
+       "openfema_declarations",
+       "nws_active_alerts",
+       "scoring_engine"
+      ],
+      "confidence": "high",
+      "confidence_reason": "Methodology is returned directly by the tool; the main caveats are the ~5-year observed window, point-location ERA5 data and county-level NRI percentiles.",
+      "follow_up_suggestions": [
+       "Which hubs rank highest on the composite score right now?",
+       "Can you show the full score breakdown for one hub, e.g. New Orleans?",
+       "Which hubs currently have active NWS alerts bumping their score?"
+      ],
+      "in_scope": true
+     },
+     "tool_calls": [
+      {
+       "name": "get_methodology",
+       "input": {},
+       "ok": true,
+       "duration_ms": 0,
+       "error": null
+      }
+     ],
+     "latency_s": 16.2,
+     "checks": {
+      "schema": [
+       true,
+       "validated"
+      ],
+      "grounded": [
+       true,
+       "all numbers traceable"
+      ],
+      "mentions": [
+       true,
+       "ok"
+      ]
+     }
+    }
+   ],
+   "usage": {
+    "input_tokens": 10135,
+    "output_tokens": 1098
+   },
+   "judge_usage": {
+    "input_tokens": 0,
+    "output_tokens": 0
+   }
+  },
+  {
+   "id": "live_alerts",
+   "tags": [
+    "live"
+   ],
+   "passed": true,
+   "turns": [
+    {
+     "user": "Are there any active weather alerts affecting our hubs right now?",
+     "answer": {
+      "answer": "Yes \u2014 two hubs currently have live NWS alerts:\n\n- **Los Angeles, CA** \u2014 Extreme Heat Warning (Severe), issued Oct 6 2:56AM PDT, running until Oct 8 8:00PM PDT. This adds a +5.0 alert bump, taking the score from a base of 20.9 to a live 25.9 (still tier Low).\n- **Atlanta, GA** \u2014 Special Weather Statement (Moderate), issued Oct 6 4:12AM EDT, expiring 9:00AM EDT today. It carries no score bump (+0.0), so Atlanta stays at 26.2, tier Low.\n\nNo other hubs in the portfolio have active alerts. The LA heat warning is the only one with operational teeth over the next couple of days \u2014 worth flagging for outbound scheduling and driver/yard-worker heat protocols through Wednesday evening.",
+      "hub_refs": [
+       {
+        "hub_id": "los_angeles",
+        "role": "explained"
+       },
+       {
+        "hub_id": "atlanta",
+        "role": "explained"
+       }
+      ],
+      "reasoning": [
+       "Queried live NWS active alerts across all 22 hubs.",
+       "Only Atlanta and Los Angeles returned alerts.",
+       "The LA Extreme Heat Warning is severity 'Severe' and triggers a +5.0 live-score bump (20.9 -> 25.9); the Atlanta Special Weather Statement is 'Moderate' with a 0.0 bump.",
+       "Both hubs remain in the Low live tier despite the alerts."
+      ],
+      "assumptions": [
+       "Alerts are a live snapshot as of now and will change; re-check before acting.",
+       "Alerts are matched to the hub's point location, so nearby-but-outside-polygon conditions may not appear.",
+       "Scores are 0-100 and relative to this 22-hub portfolio; tiers are prioritization bands, not probabilities."
+      ],
+      "data_sources": [
+       "nws_active_alerts",
+       "scoring_engine"
+      ],
+      "confidence": "high",
+      "confidence_reason": "Direct live alert feed, though it is a point-in-time snapshot that can change within hours.",
+      "follow_up_suggestions": [
+       "How does Los Angeles's heat sub-score compare with Phoenix and Dallas?",
+       "What drives Atlanta's composite risk score of 26.2?",
+       "Which hubs rank highest on composite weather disruption risk overall?"
+      ],
+      "in_scope": true
+     },
+     "tool_calls": [
+      {
+       "name": "get_active_alerts",
+       "input": {
+        "hub": "all"
+       },
+       "ok": true,
+       "duration_ms": 10311,
+       "error": null
+      }
+     ],
+     "latency_s": 22.6,
+     "checks": {
+      "schema": [
+       true,
+       "validated"
+      ],
+      "grounded": [
+       true,
+       "all numbers traceable"
+      ],
+      "tools_any": [
+       true,
+       "ok"
+      ]
+     }
+    }
+   ],
+   "usage": {
+    "input_tokens": 9427,
+    "output_tokens": 840
+   },
+   "judge_usage": {
+    "input_tokens": 0,
+    "output_tokens": 0
+   }
+  }
+ ]
+}
