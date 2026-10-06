@@ -8016,3 +8016,1130 @@ The session transcript in `session/` doesn't yet include this alerts setup. Want
 Yes, re-export the session one last time so it includes the completed production alerts setup and verification.
 
 Use the same process as before: replace the transcript files, rerender the Markdown version, scan for secrets and sensitive values before committing, then push the final version.
+
+
+> 🔧 `mcp__ccd_session_mgmt__export_transcript`
+
+```json
+{
+ "session_id": "self"
+}
+```
+
+<details><summary>result</summary>
+
+```
+Exported this session's transcript "MoveoAI assignment plan" to /Users/eladrabinovitch/Downloads/session-export-1791291846209.zip (3 MB, 2785927 bytes). The zip holds the conversation transcript, its subagent transcripts and session metadata, not the app's logs; nothing was uploaded.
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "SP=/private/tmp/claude-501/-Users-eladrabinovitch-MoveoAi/1f34282c-0952-495d-af6e-2f13c41342d8/scratchpad/export4 && rm -rf $SP && mkdir -p $SP && unzip -q /Users/eladrabinovitch/Downloads/session-export-1791291846209.zip -d $SP && .venv/bin/python - \"$SP/transcript.jsonl\" <<'EOF'\nimport json, re, sys\nsrc = sys.argv[1]\ndef strip(o):\n    if isinstance(o, dict):\n        return {k: (\"<blob>\" if k in (\"signature\", \"data\", \"base64\") and isinstance(v, str) and len(v) > 200 else strip(v)) for k, v in o.items()}\n    if isinstance(o, list): return [strip(v) for v in o]\n 
+… [1985 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+new content present: True True True
+anthropic key         : 0 []
+JWT/OIDC              : 0 []
+upstash host          : 0 []
+redis conn string     : 0 []
+slack/github/aws      : 0 []
+secret env assigned   : 1 ['ANTHROPIC_API_KEY']
+bearer w/ real value  : 0 []
+high-entropy candidates: 21
+    '+qcEIiHOmcAXDhRDqI8d1mBBtEmflwnA7GbRtldS0HosLJ6sfiOIFMgBBLV/' | ctx: "m5tpD7ZgqrhmZ+PvnfYxzCG08hsm5as1W'\\n   '"
+    '4We6ZNgBlWOtSANrdkDfcuDWt3V0qqQbQNEbgySffD4mO5OdK4f9VaNGikU/' | ctx: "DV0qGXvDzfgML/vN+HgaTrktXFAYS4Wgm'\\n   '"
+    'NngqlOQId2ERtLZV60CYUtCTId8ngXNU6jLEdlNn+ho1nLkI9iIMda2W1ln+' | ctx: "gr8lChdFI6dBJ/wW9FSrS28ZHFCa4keLC'\\n   '"
+    'eM2yxQ+9Un8mf22W1s7392XrQ6796g/S5a7ZCF6bLUopAnUQaWYbE+vAOvn+' | ctx: "eG2Iesx2Vcp0zd4qrYmtfK7KtVyWJkRau'\\n   '"
+    'k5Vo4YVsyYdum0/D4tjih9udLqjpxeX227SbL
+… [1913 more chars]
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "SP=/private/tmp/claude-501/-Users-eladrabinovitch-MoveoAi/1f34282c-0952-495d-af6e-2f13c41342d8/scratchpad/export4 && .venv/bin/python - \"$SP/transcript.jsonl\" <<'EOF'\nimport json, re, sys\nblobs = []\ndef collect(o):\n    if isinstance(o, dict):\n        for k, v in o.items():\n            if k in (\"signature\", \"data\", \"base64\") and isinstance(v, str) and len(v) > 200: blobs.append(v)\n            else: collect(v)\n    elif isinstance(o, list):\n        for v in o: collect(v)\nlines = [json.loads(l) for l in open(sys.argv[1])]\nfor d in lines: collect(d)\nblob_text = \"
+… [1425 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+candidates not found inside signature/media blobs: ['nANTHROPIC_MODEL=claude-sonnet-5']
+ANTHROPIC_API_KEY hit context: "/ webhook.site)\\nALERT_WEBHOOK_URL=\\nEOF\\ncat > .env.example <<'EOF'\\nANTHROPIC_API_KEY=your-key-here\\nANTHROPI"
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "SP=/private/tmp/claude-501/-Users-eladrabinovitch-MoveoAi/1f34282c-0952-495d-af6e-2f13c41342d8/scratchpad/export4 && cp $SP/transcript.jsonl session/transcript.jsonl && .venv/bin/python -m scripts.render_transcript session/transcript.jsonl session/transcript.md && echo \"user turns: $(grep -c '## 🧑 User' session/transcript.md)\" && grep -c \"13:02:11\" session/transcript.md && git add session/ && echo \"== staged:\" && git diff --cached --name-only && echo \"== staged diff secret scan:\" && git diff --cached -U0 | grep -E \"^\\+\" | grep -oE \"sk-ant-[a-z0-9]+-[A-Za-z0-9_-]{30,}
+… [434 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+wrote session/transcript.md (363 KB)
+user turns: 34
+2
+== staged:
+session/transcript.jsonl
+session/transcript.md
+== staged diff secret scan:
+       0
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "git commit -q -F - <<'EOF'\nFinal session transcript: production alerts setup and verification\n\nRe-exported the full session (now including Redis/webhook setup, cron\npersistence checks and the signed test delivery) and re-rendered\ntranscript.md. Scanned before committing: no API keys, tokens, Redis/Upstash\nURLs or credentials; long opaque strings are thinking-block signatures and\nembedded screenshots/PDF (and fragments of them echoed by earlier scans).\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nEOF\ngit push origin main 2>&1 | tail -1; git log --oneline | 
+… [116 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+c1bb2f7..bcec63f  main -> main
+bcec63f Final session transcript: production alerts setup and verification
+## main...origin/main
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:05:02**
+
+The final session transcript is committed and pushed as `bcec63f`. It now includes the full production alerts setup and verification.
+
+**What's in `session/`:**
+- **`transcript.jsonl`:** replaced with the new export.
+- **`transcript.md`:** re-rendered, now 34 user turns. It includes the Redis connection, both cron runs, the redeploy and your signed test delivery at 13:02:11.
+
+**Secret scan, done before committing:**
+- **No secrets found:** no API keys or tokens, no Upstash hostnames, no `redis://` connection strings, no KV token values, and no secret env vars with real values in the transcript or in the committed changes.
+- **Things that looked suspicious but aren't:**
+  - **The `ANTHROPIC_API_KEY` hit** is the `your-key-here` placeholder in `.env.example`.
+  - **20 long random-looking strings** were copied from the model's reasoning signatures and the embedded images, echoed into the transcript by my earlier scans. None are credentials.
+  - **The last candidate** is the `.env` template line where `ANTHROPIC_API_KEY=` is empty.
+- **Your email** appears 6 times, in session context, as before.
+
+The export was taken at the start of this step, so this final scan and summary aren't in it.
+
+**Final state:**
+
+| | |
+|---|---|
+| GitHub | https://github.com/EladRab1106/MoveoAi, `main` at `bcec63f`, in sync |
+| Production | https://weather-risk-agent.vercel.app: chat, scores, UI and alerts all working |
+| Alerts | Upstash Redis (persistent), daily cron protected by `CRON_SECRET`, signed webhooks, built-in test receiver, end-to-end delivery verified |
+| Evals | 16/16 pass (52 unit tests) |
+| Deliverables | Source with run instructions (README), design doc (`docs/ARCHITECTURE.md`), plan (`PLAN.md`), full session (`session/`) |
+
+
+---
+
+## 🧑 User · 2026-10-06 13:22:40
+
+<pasted_content id="cf0d">
+I noticed two explanation issues we should tighten.
+
+1. For any question about methodology, scoring, weights, thresholds or date windows, the agent should always call `get_methodology` and answer from that tool output. I don’t want it explaining the scoring logic from memory.
+2. We should also stop it from making unsupported comparative or absolute claims. It shouldn’t say things like “highest”, “largest”, “lowest”, or “low in absolute terms” unless that is directly supported by the tool output or an explicit ranking/comparison result.
+
+Please make those two changes, keep them as narrow as possible, and then rerun the relevant checks for methodology and the explanation cases where this showed up.
+</pasted_content id="cf0d">
+
+
+**🤖 Assistant · 2026-10-06 13:22:58**
+
+Here's the plan, kept narrow:
+- **Prompt:** two rule changes in the system prompt.
+- **Tool description:** one wording change on `get_methodology`.
+- **Evals:** new checks, plus one new case.
+- **Unchanged:** scoring, tools and the API.
+
+Current prompt rules first:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "sed -n '/## How you work/,/## Answer format/p' app/agent/prompts.py; grep -n '\"get_methodology\", \"strict\"' -A3 app/agent/tools.py",
+ "description": "Show current prompt rules and methodology tool description"
+}
+```
+
+<details><summary>result</summary>
+
+```
+## How you work
+- All numbers (scores, ranks, day counts, percentages) come from your tools, which run \
+deterministic code over public data: Open-Meteo daily history (ERA5), the FEMA National Risk \
+Index, OpenFEMA disaster declarations and live NWS alerts. Never estimate, recall or invent a \
+number; if a tool doesn't provide it, say you don't have it.
+- Call tools before answering any factual question. Call several tools in parallel when the \
+calls are independent (for example get_hub_risk for each hub being explained).
+- Describe thresholds, rules, weights and methodology only as the tools return them (for example `observed_rule`, `threshold`, `rule`, or get_methodology). Don't add variables, units or criteria the tools didn't state. If you haven't retrieved a rule in this conversatio
+… [1994 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:23:08**
+
+Making the two prompt changes and the tool-description tweak:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n    for a,b in pairs:\n        assert a in s, (p, a)\n        s=s.replace(a,b)\n    open(p,'w').write(s)\nedit('app/agent/prompts.py', [\n ('''- Describe thresholds, rules, weights and methodology only as the tools return them (for example `observed_rule`, `threshold`, `rule`, or get_methodology). Don't add variables, units or criteria the tools didn't state. If you haven't retrieved a rule in this conversation, call the tool or don't describe it.''',\n  '''- For any question about methodology, scoring, weights, thres
+… [2065 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+52 passed in 0.82s
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n    for a,b in pairs:\n        assert a in s, (p, a)\n        s=s.replace(a,b)\n    open(p,'w').write(s)\n\nedit('evals/run.py', [\n ('''        elif name == \"no_percent\":''','''        elif name == \"no_phrases\":\n            found = [ph for ph in spec if ph.lower() in low]\n            res[name] = (not found, f\"found {found}\" if found else \"ok\")\n        elif name == \"no_percent\":'''),\n ('''        elif name == \"facts\":\n            pass  # judged separately''','''        elif name in (\"facts\", \"claim
+… [7010 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+7
+17
+52 passed in 0.79s
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python -m evals.run --judge --case methodology --case methodology_followup --case midwest_winter --case miami_vs_houston --case dallas_why_high --case followup_region_switch 2>&1 | tail -25",
+ "description": "Run methodology and explanation eval cases with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+Running 6 case(s) on claude-opus-5 + judge claude-sonnet-5 ...
+
+case                               result  failed checks
+midwest_winter                     PASS    
+miami_vs_houston                   PASS    
+dallas_why_high                    PASS    
+followup_region_switch             FAIL    
+                                          t2.claims_supported: unsupported: 'Charlotte and Atlanta carry the highest ice-storm percentiles' (Among South hubs, Houston's ISTM (47.9) is higher than Atlanta's (44.1); only Charlotte (52.3) is truly top, so pairing Atlanta as having 'the highest' ice-storm percentile alongside Charlotte is not supported by the data.)
+methodology                        PASS    
+methodology_followup               PASS    
+
+Cases passed: 5/6
+Checks: claims_supported 5/6, g
+… [319 more chars]
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "sqlite3 data/weather.db \"select n.hub_id, round(n.loss_rate_pctl,1) from nri_hazard n where n.hazard='ISTM' and n.hub_id in ('charlotte','houston','atlanta','memphis','dallas','new_orleans','miami') order by 2 desc\"",
+ "description": "Check South hubs' ice-storm NRI percentiles"
+}
+```
+
+<details><summary>result</summary>
+
+```
+charlotte|52.3
+houston|47.9
+atlanta|44.1
+memphis|41.1
+dallas|38.8
+new_orleans|19.2
+miami|
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='app/agent/prompts.py'\ns=open(p).read()\na='''what was ranked (for example \"highest winter score of the 7 Midwest hubs\"). Tools give tied \\\\'''\nb='''what was ranked (for example \"highest winter score of the 7 Midwest hubs\"). Tools don't rank \\\\\nindividual components such as FEMA NRI percentiles (WNTW, ISTM, HAIL, ...); for those, state \\\\\neach hub's value instead of ranking them yourself. Tools give tied \\\\'''\nassert a in s; s=s.replace(a,b); open(p,'w').write(s)\nEOF\n.venv/bin/python -c \"from app.agent.prompts import system_prompt; s=syst
+… [133 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+AssertionError
+Comparative and absolute claims: use words like "highest", "largest", "lowest", "most", "least", "top", "only" or "by far" only when a tool result directly supports them (a `rank`, `portfolio_rank`, `tied_with`, or a ranking or comparison you retrieved), and scope them to what was ranked (for example "highest winter score of the 7 Midwest hubs"). Tools give tied values the same rank and list them in `tied_with` / `observed_days_tied_with`; when values are tied, say so and name the tied hubs. Scores are relative to this portfolio, so never describe a hub as high, low, safe or exposed "in absolute terms".
+- If a requested period isn't covered by the data (the tool reports no or partial coverage), say so a
+… [188 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:25:48**
+
+The edit didn't apply: my match string had the line-continuation backslash escaped wrong. Checking the exact text in the file:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "grep -n \"highest winter score of the 7 Midwest hubs\" app/agent/prompts.py | cat -A | cut -c1-160",
+ "description": "Show exact line with escape characters"
+}
+```
+
+<details><summary>result</summary>
+
+```
+cat: illegal option -- A
+usage: cat [-belnstuv] [file ...]
+```
+</details>
+
+
+> 🔧 `Read`
+
+```json
+{
+ "file_path": "/Users/eladrabinovitch/MoveoAi/app/agent/prompts.py",
+ "offset": 20,
+ "limit": 10
+}
+```
+
+<details><summary>result</summary>
+
+```
+20	calls are independent (for example get_hub_risk for each hub being explained).
+21	- For any question about methodology, scoring, weights, thresholds, tiers or date windows, call get_methodology in that turn, even if an earlier turn covered it, and answer from its output. Don't explain the scoring logic from memory, from earlier turns or from this prompt.
+22	- Describe thresholds, rules, weights and methodology only as the tools return them (for example `observed_rule`, `threshold`, `rule`, or get_methodology). Don't add variables, units or criteria the tools didn't state.
+23	- Comparative and absolute claims: use words like "highest", "largest", "lowest", "most", "least", "top", "only" or "by far" only when a tool result directly supports them (a `rank`, `portfolio_rank`, `tied_with`, o
+… [1241 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:25:55**
+
+The earlier edit wrote the rule as one long line, without line continuations, which is why the match failed. I'll edit it directly:
+
+
+> 🔧 `Edit`
+
+```json
+{
+ "replace_all": "<5 chars>",
+ "file_path": "/Users/eladrabinovitch/MoveoAi/app/agent/prompts.py",
+ "old_string": "<116 chars>",
+ "new_string": "<277 chars>"
+}
+```
+
+<details><summary>result</summary>
+
+```
+The file /Users/eladrabinovitch/MoveoAi/app/agent/prompts.py has been updated successfully.
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:26:01**
+
+Rerunning the failing case twice, because a single pass on a stochastic model could pass by luck:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python -m pytest -q 2>&1 | tail -1; for i in 1 2; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|Latency|cost|Results\"; done",
+ "description": "Rerun follow-up case twice with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+52 passed in 0.60s
+=== run 1
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Latency per turn: p50 20.2s, p95 22.9s; wall 82s
+Tokens: 46,085 in / 4,333 out; est. cost $0.39
+Results: evals/results/20261006-162726.json
+=== run 2
+followup_region_switch             FAIL    
+                                          t2.claims_supported: unsupported: 'the highest Southern winter score here at 41.8 (WNTW 31.2, ISTM 52.3)' (The tool output only ranks hubs by composite winter hazard sub-score, not by the FEMA NRI long-term component score alone; no rank field or explicit ranking is provided for NRI long-term winter score across South hubs, so claiming Charlotte's 41.8 is 'the highest' is 
+… [344 more chars]
+```
+</details>
+
+
+> 🔧 `Edit`
+
+```json
+{
+ "replace_all": "<5 chars>",
+ "file_path": "/Users/eladrabinovitch/MoveoAi/app/agent/prompts.py",
+ "old_string": "<160 chars>",
+ "new_string": "<217 chars>"
+}
+```
+
+<details><summary>result</summary>
+
+```
+The file /Users/eladrabinovitch/MoveoAi/app/agent/prompts.py has been updated successfully.
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python -m pytest -q 2>&1 | tail -1; for i in 1 2 3; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|Latency|cost\"; done",
+ "description": "Rerun follow-up case three times with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+52 passed in 0.62s
+=== run 1
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Latency per turn: p50 19.2s, p95 20.3s; wall 70s
+Tokens: 41,986 in / 3,928 out; est. cost $0.34
+=== run 2
+followup_region_switch             FAIL    
+                                          t2.claims_supported: unsupported: 'Memphis and Charlotte would be the only places worth even modest winter-readiness spend' (This is an evaluative inference not directly supported by any rank or explicit comparison in the tool output; the data shows relative sub-scores but no 'worth investment' metric or threshold justifying 'only' these two.)
+                                          t3.no_phrases: found ['absolute
+… [906 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:32:57**
+
+This is getting noisier, not cleaner. Before changing anything else I'll read exactly what was said, because some of these flags may be the checks being too blunt rather than the agent misbehaving:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "ls -t evals/results/ | head -3 && .venv/bin/python - <<'EOF'\nimport json, glob, os, re\nfiles = sorted(glob.glob(\"evals/results/*.json\"), key=os.path.getmtime)[-3:]\nfor f in files:\n    d = json.load(open(f))\n    for t in d[\"results\"][0][\"turns\"][1:]:\n        a = t[\"answer\"][\"answer\"]\n        for m in re.finditer(r\"[^.\\n]*(absolute|only places|only hub|only ones)[^.\\n]*[.\\n]\", a, re.I):\n            print(os.path.basename(f), \"|\", m.group().strip())\nEOF",
+ "description": "Show the sentences that triggered the new checks"
+}
+```
+
+<details><summary>result</summary>
+
+```
+20261006-163252.json
+20261006-163136.json
+20261006-163024.json
+20261006-163136.json | Memphis and Charlotte would be the only places worth even modest winter-readiness spend, and largely because FEMA's NRI picks up ice-storm (ISTM) exposure that the short observed record barely registers.
+20261006-163136.json | Scores are relative to this 22-hub portfolio, not absolute probabilities.
+20261006-163136.json | Worth flagging the premise: Memphis isn't very exposed to winter in absolute terms — it just tops a low-scoring group.
+20261006-163252.json | Memphis and Charlotte are the only places where an ice-storm contingency is worth a look, mainly on the FEMA ice-storm component rather than observed frequency.
+20261006-163252.json | Quick premise check: Memphis tops the South on winter, but it is
+… [75 more chars]
+```
+</details>
+
+
+> 🔧 `Edit`
+
+```json
+{
+ "replace_all": "<5 chars>",
+ "file_path": "/Users/eladrabinovitch/MoveoAi/app/agent/prompts.py",
+ "old_string": "<113 chars>",
+ "new_string": "<332 chars>"
+}
+```
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='evals/cases.yaml'\ns=open(p).read()\na='''          mentions: [[winter, snow, ice, cold]]\n          no_phrases: [\"absolute terms\"]'''\nb='''          mentions: [[winter, snow, ice, cold]]\n          no_phrases: [\"absolute terms\", \"absolute-sounding\", \"in absolute\"]'''\nassert a in s; s=s.replace(a,b); open(p,'w').write(s)\nEOF\n.venv/bin/python -m pytest -q 2>&1 | tail -1; for i in 1 2 3; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|cost\"; done",
+ "descript
+… [85 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+The file /Users/eladrabinovitch/MoveoAi/app/agent/prompts.py has been updated successfully.
+```
+</details>
+
+<details><summary>result</summary>
+
+```
+52 passed in 0.80s
+=== run 1
+followup_region_switch             FAIL    
+                                          t3.claims_supported: unsupported: 'its winter sub-score of 18.0 is the smallest contributor of any hazard to its composite (4.5 of 27.0 points)' (The data shows heat's contribution (0.5) is smaller than winter's (4.5), so winter is not the smallest contributor among Memphis's hazards.)
+Checks: claims_supported 1/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 48,328 in / 4,085 out; est. cost $0.38
+=== run 2
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 45,561 in / 4,403 out; est. cost $0.38
+=== run 3
+followup
+… [198 more chars]
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python -m evals.run --judge --case methodology --case methodology_followup --case midwest_winter --case miami_vs_houston --case dallas_why_high 2>&1 | tail -14",
+ "description": "Rerun other affected eval cases on final prompt",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+Running 5 case(s) on claude-opus-5 + judge claude-sonnet-5 ...
+
+case                               result  failed checks
+midwest_winter                     PASS    
+miami_vs_houston                   PASS    
+dallas_why_high                    PASS    
+methodology                        PASS    
+methodology_followup               PASS    
+
+Cases passed: 5/5
+Checks: claims_supported 4/4, grounded 6/6, hub_refs_first 1/1, hub_refs_include 1/1, in_scope 3/3, judge 3/3, mentions 4/4, no_phrases 1/1, schema 6/6, tier_mentioned 1/1, tools 3/3, tools_any 2/2, top_k 2/2
+Latency per turn: p50 19.7s, p95 23.3s; wall 49s
+Tokens: 80,614 in / 7,752 out; est. cost $0.67
+Results: evals/results/20261006-163759.json
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='docs/ARCHITECTURE.md'\ns=open(p).read()\na='''| `methodology` after tool fix | 1 | 1/1 |'''\ni=s.index(a); j=s.index(\"\\n\", i)\nrow='''\n| Claim-discipline + methodology rules | 6 (+ follow-up ×5) | 5/5 on final prompt; follow-up case 2/3 on final prompt | New prompt rules: always call `get_methodology` for scoring/threshold/window questions; superlatives (\"highest\", \"only\", \"by far\") only when a tool rank supports them, never \"in absolute terms\", never self-derived rankings. New checks: `claims_supported` (judge sees the tool outputs and flags un
+… [2662 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+179:[`evals/cases.yaml`](evals/cases.yaml) has 17 cases, covering:
+198:| `claims_supported` (`--judge`) | Judge sees the tool outputs and flags any "highest / only / by far" claim that no tool rank supports |
+52 passed in 0.83s
+   bcec63f..f8a5c3a  main -> main
+  "message": "Deployment weather-risk-agent-8xoekmdnw-brothers-bakery.vercel.app ready.",
+ok {'anthropic_api_key': True, 'cron_secret': True, 'alert_webhook': True}
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:39:32**
+
+I made both changes. Every affected case passes on the final prompt except the three-turn follow-up, which passes 2 of 3 runs. Its remaining failure is a self-derived superlative, which the new check catches. Everything is pushed (`f8a5c3a`) and production is redeployed and healthy.
+
+**What changed:**
+- **Prompt:**
+  - **Methodology:** any question about methodology, scoring, weights, thresholds, tiers or date windows must call `get_methodology` in that same turn, even if an earlier turn covered it, and be answered from its output, not from memory.
+  - **Comparative claims:** words like highest, largest, lowest, most, least, top, only or by far are allowed only when a tool rank or comparison supports them, scoped to what was ranked. The agent must not rank values itself, must not call a hub high or low "in absolute terms", and the same applies to recommendations and premise corrections, which should cite the tier or portfolio rank instead.
+- **Tool description:** `get_methodology` now says to always call it for those questions.
+- **Unchanged:** scoring, the other tools and the API.
+
+**New eval checks:**
+- `claims_supported`: the Sonnet judge sees the tool outputs and lists any comparative claim they don't support. It's on all 4 explanation cases and the methodology case.
+- `no_phrases`: blocks "absolute terms" wording.
+- **New case `methodology_followup`:** a methodology question asked after a ranking, the situation where the agent is most tempted to answer from memory.
+
+**Results on the final prompt:**
+
+| Case | Result |
+|---|---|
+| methodology, methodology_followup | ✅ both called `get_methodology`; the follow-up answered "50 mm" and "0.20" from the tool |
+| midwest_winter, miami_vs_houston, dallas_why_high | ✅ no unsupported claims |
+| followup_region_switch (3 turns, ran 3×) | ⚠️ 2/3 pass |
+
+**What the new check caught while iterating:**
+- *"Charlotte and Atlanta carry the highest ice-storm percentiles"*: false, since Houston's 47.9 beats Atlanta's 44.1.
+- *"Memphis isn't very exposed to winter in absolute terms"*.
+- *"Memphis and Charlotte are the only places worth winter-readiness spend"*.
+
+The tightened rules removed all three kinds in the final runs.
+
+**The remaining failure:** in 1 of 3 runs, the agent still worked out a ranking itself and got it wrong: *"winter is the smallest contributor of any hazard"* for Memphis (heat is actually smaller). The prompt now forbids exactly this, so it's an occasional lapse, not a missing rule, and the check catches it.
+
+Prompt wording alone probably won't push this to 100%. The narrowest further fix would be on the tool side: have `get_hub_risk` list each hub's hazards in order of contribution, so "largest/smallest contributor" claims are backed by the tool instead of the model's own arithmetic. That touches tool output, which is slightly outside the "narrow" scope you set, so I haven't done it.
+
+**Cost of this round:** about $5.70 across all runs.
+
+Two follow-ups, your call:
+1. Make that small `get_hub_risk` change and re-measure the follow-up case?
+2. Re-export the session so the transcript includes this round?
+
+
+---
+
+## 🧑 User · 2026-10-06 13:41:00
+
+<pasted_content id="cf0d">
+Yes, make the small `get_hub_risk` change.
+
+Have it return the hazard contributions already ordered, so if the agent wants to say which contributor is largest or smallest, that claim comes directly from the tool instead of the model ranking the values itself.
+
+Keep the change limited to the tool output and don’t change the scoring logic.
+
+Then rerun only the `followup_region_switch` case a few times. If it’s stable, re-export the session one final time and run the same secret scan before pushing.
+</pasted_content id="cf0d">
+
+
+**🤖 Assistant · 2026-10-06 13:41:05**
+
+I'll add the ordered contributions to `get_hub_risk` output only. This reuses the engine's existing tie-aware `competition_ranks` helper, so scoring is untouched.
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "sed -n '/^def get_hub_risk/,/^def compare_hubs/p' app/agent/tools.py",
+ "description": "Show current get_hub_risk tool implementation"
+}
+```
+
+<details><summary>result</summary>
+
+```
+def get_hub_risk(hub: str) -> dict:
+    r = engine.get_hub_risk(hub)
+    data = r.model_dump(exclude={"active_alerts", "alert_bump", "base_score"})
+    data["portfolio_size"] = len(load_hubs())
+    data["tier_thresholds"] = scoring_config()["tiers"]
+    return data
+
+
+def compare_hubs(hubs: list[str]) -> dict:
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='app/agent/tools.py'\ns=open(p).read()\na='''    data[\"portfolio_size\"] = len(load_hubs())\n    data[\"tier_thresholds\"] = scoring_config()[\"tiers\"]\n    return data\n\n\ndef compare_hubs'''\nb='''    data[\"portfolio_size\"] = len(load_hubs())\n    data[\"tier_thresholds\"] = scoring_config()[\"tiers\"]\n    data[\"contributions_ranked\"] = _ranked_contributions(r)\n    return data\n\n\ndef _ranked_contributions(r: HubRisk) -> dict:\n    \"\"\"This hub's hazards ordered by points contributed to its composite (1 = largest), so\n    \"largest/smallest co
+… [2023 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+53 passed in 0.78s
+{"order": [{"rank": 1, "hazard": "flood", "contribution_points": 10.4}, {"rank": 2, "hazard": "severe_storm", "contribution_points": 7.7}, {"rank": 3, "hazard": "winter", "contribution_points": 4.5}, {"rank": 4, "hazard": "hurricane", "contribution_points": 3.9}, {"rank": 5, "hazard": "heat", "contribution_points": 0.5}], "largest": ["flood"], "smallest": ["heat"], "note": "Within this hub only, ranked by points contributed to its composite score; tied values share a rank."}
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "for i in 1 2 3 4 5; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|cost\"; done",
+ "description": "Run follow-up eval case five times with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+=== run 1
+followup_region_switch             FAIL    
+                                          t3.claims_supported: unsupported: 'Memphis's relatively notable ice-storm exposure is what lifts it above the other Southern hubs' (Memphis's ISTM score (41.1) is not the highest among Southern hubs in the tool output—Charlotte (52.3), Houston (47.9), and Atlanta (44.1) all have higher ISTM scores, so ice-storm exposure does not explain why Memphis ranks above them on winter.)
+Checks: claims_supported 1/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 43,720 in / 4,154 out; est. cost $0.36
+=== run 2
+followup_region_switch             FAIL    
+                                          t3.claims_supported: unsupported: 'ice storm is the stronger of t
+… [2917 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:48:22**
+
+**Not stable: 0/5 runs passed.** Following your instruction, I have **not** re-exported the session or pushed. The `get_hub_risk` change itself worked, but the case still fails, for other reasons. Here's the breakdown:
+
+**The targeted problem is fixed.** The "winter is the smallest contributor" error didn't appear once in 5 runs. The tool now states it directly: for Memphis, flood is largest, heat is smallest, and winter ranks 3rd.
+
+**What failed instead, grouped by cause:**
+
+| Cause | Runs | Example | Real error? |
+|---|---|---|---|
+| **A. Wrong explanation of why one hub ranks above another** | 1, 5 | *"Memphis's ice-storm exposure is what lifts it above the other Southern hubs"*, but 3 Southern hubs have higher ice-storm percentiles. *"…mainly on FEMA percentiles rather than observed frequency"*, but Memphis actually has the **most** observed winter days in the South | **Yes.** The model compares components across hubs and gets the conclusion wrong |
+| **B. The judge being stricter than your rule** | 2, 3, 4 | It flagged *"ice storm is the stronger of the two components"* while its own note says it's *"directly supported"*; called New Orleans and Houston being the top Southern composites *"arguably supported"*; flagged *"near the national ceiling"* for a 98.8 **national** percentile | **Mostly no.** My judge enforces "never compare values yourself", which is stricter than your actual rule ("unless directly supported by the tool output") |
+| **C. "The top one" read as the wrong hub** | 3, 4 | In turn 3, "Why is the top one there so exposed?" was taken to mean New Orleans (top overall) instead of Memphis (top on winter) | **Ambiguity.** Turn 2 now discusses both rankings, so "the top one" can refer to either |
+
+**My recommendation:** three narrow changes, then re-measure 5 runs, about $2:
+1. **Fix the judge for B.** Flag claims that are **false or overstated** given the tool outputs: wrong comparisons, the wrong scope, or absolute statements. Accept correct comparisons of values that appear in the outputs. That matches your original wording. I'd keep the stricter rule in the prompt as a safety margin.
+2. **One prompt line for C:** resolve references like "the top one" to the most recent ranking the agent presented, and name the hub it means.
+3. **One prompt line for A:** when explaining why hub X ranks above hub Y, cite the specific component values for **both** hubs. That makes wrong comparisons visible, and the judge can verify them against the tool output.
+
+**Current state:**
+- **The `get_hub_risk` change** (with a unit test, 53 tests passing) is in the working tree only: not committed, not pushed, not deployed.
+- **This round cost** about $1.90.
+
+Should I go ahead with those three changes and re-measure?
+
+
+---
+
+## 🧑 User · 2026-10-06 13:53:03
+
+<pasted_content id="cf0d">
+Yes, go ahead with those three changes.
+Please keep them narrow:
+
+1. Make the judge flag false or overstated comparisons, not valid comparisons that are directly supported by tool values.
+2. Resolve references like “the top one” to the most recent ranking context and name the hub explicitly.
+3. When explaining why one hub ranks above another, require the answer to cite the relevant component values for both hubs.
+
+Then rerun only `followup_region_switch` 5 times.
+If it becomes stable, commit, deploy, and only then re-export the session. If it still fails, stop and show me the exact remaining failure patterns before changing anything else.
+</pasted_content id="cf0d">
+
+
+**🤖 Assistant · 2026-10-06 13:53:07**
+
+Making the three changes. First the judge, which will now flag claims that are **false or overstated** given the tool values, and accept correct comparisons:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='evals/run.py'\ns=open(p).read()\na_start=s.index('        \"List every claim using words like highest')\na_end=s.index('        \"Return an empty list if all such claims are supported.\")')+len('        \"Return an empty list if all such claims are supported.\")')\nnew='''        \"Check every comparative, superlative or absolute claim (e.g. highest, largest, \"\n        \"lowest, most, least, top, only, 'by far', 'mainly', 'lifts it above', 'in absolute \"\n        \"terms') against the tool outputs. Flag a claim ONLY if it is (a) false given the tool \"\n
+… [1353 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+def judge_claims(resp: ChatResponse, tool_outputs: list[str]) -> tuple[bool, str, dict]:
+    """Flag comparative/superlative/absolute claims that are false or overstated given the
+    tool outputs (correct comparisons of listed values are fine)."""
+    evidence = "\n---\n".join(o[:6000] for o in tool_outputs)[:40000]
+    prompt = (
+        "You audit an AI analyst's answer for false or overstated comparative claims.\n\n"
+        f"ANSWER:\n{resp.answer.answer}\n\nREASONING:\n" + "\n".join(resp.answer.reasoning) +
+        f"\n\nTOOL OUTPUTS (the only evidence):\n{evidence}\n\n"
+        "Check every comparative, superlative or absolute claim (e.g. highest, largest, "
+        "lowest, most, least, top, only, 'by far', 'mainly', 'lifts it above', 'in absolute "
+        "terms') against the too
+… [854 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:53:18**
+
+Next, the two prompt lines. Reading the exact current text first, to avoid another escaping mismatch:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "grep -n \"Follow-ups refer back\\|For \\\"why\\\" questions\\|the observed disruption days per year behind them\" app/agent/prompts.py",
+ "description": "Locate follow-up and why-question prompt lines"
+}
+```
+
+<details><summary>result</summary>
+
+```
+26:- For "why" questions, explain with the score breakdown: which hazards contribute most points, \
+27:the observed disruption days per year behind them, and the FEMA NRI components.
+36:- Follow-ups refer back to the conversation ("and Chicago?", "why?"); resolve them from context.
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='app/agent/prompts.py'\ns=open(p).read()\na='''the observed disruption days per year behind them, and the FEMA NRI components.\n'''\nb='''the observed disruption days per year behind them, and the FEMA NRI components. When \\\\\nexplaining why one hub ranks above another, cite the relevant component values for both hubs \\\\\n(for example observed days/yr and NRI percentiles for each).\n'''\nassert s.count(a)==1; s=s.replace(a,b)\na='''- Follow-ups refer back to the conversation (\"and Chicago?\", \"why?\"); resolve them from context.'''\nb='''- Follow-ups r
+… [708 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+True
+True
+53 passed in 0.78s
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:53:31**
+
+Both rules are in the rendered prompt and all 53 tests pass. Running `followup_region_switch` 5 times:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "for i in 1 2 3 4 5; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|cost|Results\"; done",
+ "description": "Run follow-up eval case five times with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+=== run 1
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 42,649 in / 3,806 out; est. cost $0.35
+Results: evals/results/20261006-165441.json
+=== run 2
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 42,582 in / 3,895 out; est. cost $0.34
+Results: evals/results/20261006-165540.json
+=== run 3
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 1/1, schema 3/3, top_k 2/2
+Tokens: 48,704 in / 3,946 out; est. cost $0.38
+Results: evals/results/20261006-165640.json
+=== run 4
+followu
+… [942 more chars]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:59:08**
+
+Read the exact text of the remaining failure before reporting:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python - <<'EOF'\nimport json, re\nd = json.load(open(\"evals/results/20261006-165803.json\"))\nt = d[\"results\"][0][\"turns\"][1]\nprint(\"Q:\", t[\"user\"])\nfor m in re.finditer(r\"[^.\\n]*only[^.\\n]*[.\\n]\", t[\"answer\"][\"answer\"]):\n    print(\"SENTENCE:\", m.group().strip())\nprint(\"TOOLS:\", [(c[\"name\"], c[\"input\"]) for c in t[\"tool_calls\"]])\nEOF",
+ "description": "Show the exact sentence behind the remaining failure"
+}
+```
+
+<details><summary>result</summary>
+
+```
+Q: What about the South?
+SENTENCE: If you're prioritising winter resilience spend, Memphis and Charlotte are the only South candidates worth a look, and chiefly because of ice-storm exposure in the NRI (Charlotte ISTM 52.
+TOOLS: [('rank_hubs', {'hazard': 'winter', 'region': 'South', 'top_n': 7})]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 13:59:26**
+
+**Result: 4/5 passed.** That isn't fully stable, so following your instruction I've **stopped**: nothing is committed, deployed or re-exported.
+
+**The one remaining failure (run 4, turn 2, "What about the South?"):**
+> *"If you're prioritising winter resilience spend, Memphis and Charlotte are the **only South candidates worth a look**, and chiefly because of ice-storm exposure in the NRI…"*
+
+The agent only called `rank_hubs(winter, South)`. Nothing in that output says the other five hubs aren't worth considering, so the judge correctly flagged it as an "only" claim that goes beyond the data.
+
+**This is a single, recurring failure pattern:** an unsolicited "**only X are worth** …" recommendation in the turn-2 regional summary. It's the same lapse as two runs in the previous round ("the only places worth even modest winter-readiness spend"). The prompt already forbids it explicitly ("no 'the only hubs worth investing in'"), so this is the model occasionally ignoring an existing rule, not a missing rule.
+
+**All three changes did their job:**
+- **Judge recalibration:** no more false flags on correct comparisons. All 5 runs were judged only on real issues.
+- **"The top one":** resolved to Memphis in **5/5** runs; it was 3/5 before.
+- **Both-hubs citation:** no wrong "X ranks above Y because…" explanations in any run. Two of the previous five runs had them.
+- **Across all five runs:** grounding, schema, rankings and the phrase checks were 100%.
+
+**Options. I'm not implementing any of these until you choose:**
+1. **Accept 4/5 as good enough:** commit, deploy and re-export now, and document this as a known residual behavior that the eval catches.
+2. **One more narrow prompt change for this pattern:** give recommendations a concrete form to follow, e.g. "name the top-ranked hubs with their scores (Memphis 18.0, Charlotte 17.4) rather than saying the others aren't worth considering". Alternatively, tell the agent not to volunteer spending verdicts unless asked. Then rerun 5×, about $1.90.
+3. **Add a deterministic `no_phrases` check** for "only … worth". This makes the failure cheaper to detect but doesn't change the behavior. It can be combined with option 2.
+
+**Uncommitted changes in the working tree:**
+- the ranked contributions in `get_hub_risk`, with a test (53 tests pass);
+- the recalibrated judge;
+- the two new prompt lines ("top one" resolution, both-hubs citation).
+
+This round cost about $1.85.
+
+
+---
+
+## 🧑 User · 2026-10-06 14:01:26
+
+<pasted_content id="cf0d">
+Let’s do one final narrow fix for this pattern.
+
+For ranking or regional-summary questions, don’t volunteer conclusions like “only these hubs are worth investing in” or rule out the remaining hubs unless the user explicitly asks for an investment recommendation and the tools support that conclusion.
+
+Prefer stating the top-ranked hubs with their scores and explaining the drivers without making unsupported spending verdicts.
+
+Also add the deterministic `no_phrases` check for patterns like “only … worth” so we catch this cheaply.
+
+Then rerun `followup_region_switch` 5 times. If all 5 pass, commit and deploy the current working-tree changes and re-export the session. If it still fails, stop again and show me the exact failure.
+</pasted_content id="cf0d">
+
+
+**🤖 Assistant · 2026-10-06 14:01:34**
+
+Two narrow changes:
+1. **Prompt:** one line for ranking and regional-summary answers. Report the top-ranked hubs with their scores and drivers, and give no spending verdict or ruling-out of other hubs unless the user explicitly asks for an investment recommendation and the tools support it.
+2. **Eval:** `no_phrases` gains regex support (entries starting with `re:`) for patterns like "only … worth" and "the rest aren't worth". There's a unit test for it.
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n    for a,b in pairs:\n        assert s.count(a)==1, (p, a)\n        s=s.replace(a,b)\n    open(p,'w').write(s)\nedit('app/agent/prompts.py', [\n ('''- If a requested period isn't covered by the data''',\n  '''- For ranking or regional-summary questions, state the top-ranked hubs with their scores and \\\\\nexplain their drivers. Don't volunteer spending verdicts or rule out the remaining hubs (for \\\\\nexample \"only X and Y are worth investing in\") unless the user explicitly asks for an \\\\\ninvestment recommenda
+… [3443 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+1 failed, 53 passed in 0.85s
+25:#   no_phrases:     [phrases]           - none may appear (case-insensitive); entries starting
+45:          no_phrases: ["re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}\\b(not|n't)\\b[^.]{0,30}\\bworth\\b"]
+83:          no_phrases: ["absolute terms"]
+102:          no_phrases: ["re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}\\b(not|n't)\\b[^.]{0,30}\\bworth\\b"]
+108:          no_phrases: ["absolute terms", "absolute-sounding", "in absolute", "re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}\\b(not|n't)\\b[^.]{0,30}\\bworth\\b"]
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 14:01:50**
+
+A test failed. Also, the last assertion I wrote in that test is meaningless (`… is False or True`), so I'll remove it. Checking the failure first:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python -m pytest -q tests/test_eval_grounding.py 2>&1 | grep -E \"^E |Error|assert\" | head -8",
+ "description": "Show the failing test details"
+}
+```
+
+<details><summary>result</summary>
+
+```
+assert not check("Memphis and Charlotte are the only South candidates worth a look.")
+>       assert not check("The rest aren't worth winter spend.")
+E       assert not True
+E        +  where True = <function test_no_phrases_regex_catches_spending_verdicts.<locals>.check at 0x10d678300>("The rest aren't worth winter spend.")
+tests/test_eval_grounding.py:64: AssertionError
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='evals/cases.yaml'\ns=open(p).read()\nold=r'''\\\\b(not|n't)\\\\b'''\nnew=r'''(\\\\bnot\\\\b|n['’]t\\\\b)'''\nn=s.count(old); assert n==3, n\ns=s.replace(old,new); open(p,'w').write(s)\np='tests/test_eval_grounding.py'\ns=open(p).read()\na='''    assert check(\"Winter is the only hazard here; scores are worth reading as relative.\\\\nOK\")  is False or True\n'''\nassert a in s; s=s.replace(a,'''    assert not check(\"The remaining hubs aren’t worth it.\")   # typographic apostrophe\n''')\nopen(p,'w').write(s)\nEOF\ngrep -n \"no_phrases\" evals/cases.yaml | s
+… [125 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+45:          no_phrases: ["re:\\bonly\\b[^.]{0,80}\\bworth\\b", "re:\\b(rest|others?|remaining)\\b[^.]{0,60}(\\bnot\\b|n['’]t\\b)[^.]{0,30}\\bworth\\b"]
+54 passed in 0.65s
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 14:02:05**
+
+All 54 tests pass. Before spending on new runs, I'll calibrate the regex against the 5 answers from the last round. It should flag run 4 (the "only … worth a look" answer) and nothing else:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python - <<'EOF'\nimport json, re, yaml\ncases = yaml.safe_load(open(\"evals/cases.yaml\"))[\"cases\"]\nspec = next(c for c in cases if c[\"id\"] == \"followup_region_switch\")[\"turns\"][1][\"checks\"][\"no_phrases\"]\npats = [p[3:] for p in spec if p.startswith(\"re:\")]\nfor f in [\"20261006-165441\", \"20261006-165540\", \"20261006-165640\", \"20261006-165803\", \"20261006-165903\"]:\n    d = json.load(open(f\"evals/results/{f}.json\"))\n    hits = []\n    for i, t in enumerate(d[\"results\"][0][\"turns\"]):\n        for p in pats:\n            m = re.search(p, t[\
+… [205 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+20261006-165441 no hits
+20261006-165540 no hits
+20261006-165640 no hits
+20261006-165803 ["t2: 'only South candidates worth'"]
+20261006-165903 no hits
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 14:02:10**
+
+Calibrated exactly: it flags only run 4's spending verdict, with no false positives on the 4 good answers. Now the 5 runs:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "for i in 1 2 3 4 5; do echo \"=== run $i\"; .venv/bin/python -m evals.run --judge --case followup_region_switch 2>&1 | grep -E \"PASS|FAIL|t[0-9]\\.|Checks:|cost|Results\"; done",
+ "description": "Run follow-up eval case five times with judge",
+ "timeout": 600000
+}
+```
+
+<details><summary>result</summary>
+
+```
+=== run 1
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 2/2, schema 3/3, top_k 2/2
+Tokens: 43,755 in / 4,131 out; est. cost $0.36
+Results: evals/results/20261006-170325.json
+=== run 2
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 2/2, schema 3/3, top_k 2/2
+Tokens: 49,667 in / 4,048 out; est. cost $0.39
+Results: evals/results/20261006-170434.json
+=== run 3
+followup_region_switch             PASS    
+Checks: claims_supported 2/2, grounded 3/3, hub_refs_first 1/1, mentions 1/1, no_phrases 2/2, schema 3/3, top_k 2/2
+Tokens: 49,534 in / 4,011 out; est. cost $0.39
+Results: evals/results/20261006-170540.json
+=== run 4
+followu
+… [504 more chars]
+```
+</details>
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": "python3 - <<'EOF'\np='docs/ARCHITECTURE.md'\ns=open(p).read()\na='''Remaining failure mode: an occasional self-derived superlative (e.g. \"winter is the smallest contributor\"), which the check now catches |'''\nassert a in s\ns=s.replace(a,'''This exposed an occasional self-derived superlative (e.g. \"winter is the smallest contributor\") |\n| Follow-up stability fixes | `followup_region_switch` ×5 per round | 0/5 → 4/5 → **5/5** | `get_hub_risk` now returns `contributions_ranked` (presentation only, scoring unchanged), so \"largest/smallest contributor\" comes from the tool. T
+… [2026 more chars]
+```
+
+<details><summary>result</summary>
+
+```
+54 passed in 0.93s
+M  app/agent/prompts.py
+M  app/agent/tools.py
+M  docs/ARCHITECTURE.md
+M  evals/cases.yaml
+A  evals/results/20261006-164241.json
+A  evals/results/20261006-164351.json
+A  evals/results/20261006-164506.json
+A  evals/results/20261006-164627.json
+A  evals/results/20261006-164751.json
+A  evals/results/20261006-165441.json
+A  evals/results/20261006-165540.json
+A  evals/results/20261006-165640.json
+   f8a5c3a..00347fc  main -> main
+  "message": "Deployment weather-risk-agent-i80uyhs3k-brothers-bakery.vercel.app ready.",
+health: ok {'anthropic_api_key': True, 'cron_secret': True, 'alert_webhook': True}
+```
+</details>
+
+
+**🤖 Assistant · 2026-10-06 14:09:18**
+
+Committed and pushed (`00347fc`), and production is redeployed and healthy. One quick live chat to confirm the deployed agent works with the new tool output:
+
+
+> 🔧 `Bash`
+
+```json
+{
+ "command": ".venv/bin/python - <<'EOF'\nimport httpx, time\nt = time.time()\nr = httpx.post(\"https://weather-risk-agent.vercel.app/api/chat\", timeout=150,\n               json={\"messages\": [{\"role\": \"user\", \"content\": \"Which hazard contributes least to the Memphis hub's score?\"}]})\nd = r.json()\nprint(f\"HTTP {r.status_code} in {time.time()-t:.1f}s | tools {[(c['name'], c['input']) for c in d['tool_calls']]}\")\nprint(d[\"answer\"][\"answer\"][:350])\nEOF",
+ "description": "Smoke-test production chat on contribution ranking",
+ "timeout": 200000
+}
+```
+
+<details><summary>result</summary>
+
+```
+HTTP 200 in 14.7s | tools [('get_hub_risk', {'hub': 'Memphis'})]
+Extreme heat contributes the least to Memphis's composite score — just 0.5 of its 27.0 points. Heat scores only 3.6/100 there: Memphis averages 0.2 heat disruption days/yr (max temp >= 38.0 C) over 2021-2025, and its FEMA NRI heat-wave component (HWAV) is 8.8; heat also carries the smallest composite weight of the five hazards (0.15).
+
+For contrast
+```
+</details>
