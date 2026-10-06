@@ -110,6 +110,8 @@ def run_check(store: AlertStore | None = None,
     webhook_status = "not configured"
     if previous is None:
         status = "baseline saved (first run, nothing to compare)"
+        if webhook_url:
+            webhook_status = "configured (baseline run, nothing to send)"
     else:
         alerts = detect_changes(previous, current, threshold, now)
         status = f"{len(alerts)} change(s) detected"

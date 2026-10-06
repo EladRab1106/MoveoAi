@@ -45,6 +45,7 @@ def no_live():
 def test_first_run_baselines_then_live_alert_triggers_webhook(tmp_store):
     first = service.run_check(store=tmp_store, live_fetcher=no_live, webhook_url="")
     assert first["status"].startswith("baseline") and first["alerts"] == []
+    assert first["webhook"] == "not configured"
 
     sent = []
     hurricane = {"miami": [ActiveAlert(event="Hurricane Warning", severity="Extreme", headline=None)]}
@@ -193,3 +194,8 @@ def test_test_alert_endpoint_requires_secret(monkeypatch):
     from app import main
     monkeypatch.setattr(main, "CRON_SECRET", "s3cret")
     assert TestClient(main.app).post("/api/alerts/test").status_code == 401
+
+
+def test_baseline_run_reports_configured_webhook(tmp_store):
+    res = service.run_check(store=tmp_store, live_fetcher=no_live, webhook_url="https://hook.test")
+    assert res["webhook"] == "configured (baseline run, nothing to send)"
