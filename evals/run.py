@@ -280,15 +280,21 @@ def judge(question: str, resp: ChatResponse, facts: list[str]) -> tuple[bool, st
         "by and substantively reflected in) the answer? Then rate 1-5: explanation_quality "
         "(clear, uses the actual drivers/numbers, concise), uncertainty_communication "
         "(states relevant assumptions/limits without burying the answer).")
+    # Sonnet 5 thinks adaptively by default, so leave room for thinking + the JSON.
     r = client().messages.create(
-        model=JUDGE_MODEL, max_tokens=4000,
+        model=JUDGE_MODEL, max_tokens=16000,
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": JUDGE_SCHEMA}},
         messages=[{"role": "user", "content": prompt}])
-    text = next(b.text for b in r.content if b.type == "text")
-    g = json.loads(text)
+    usage = {"input_tokens": r.usage.input_tokens, "output_tokens": r.usage.output_tokens}
+    if r.stop_reason != "end_turn":
+        return False, f"judge error: stop_reason={r.stop_reason}", usage
+    text = next((b.text for b in r.content if b.type == "text"), "")
+    try:
+        g = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return False, f"judge error: invalid JSON ({exc})", usage
     ok = all(f["supported"] for f in g["facts"]) and min(
         g["explanation_quality"], g["uncertainty_communication"]) >= 3
-    usage = {"input_tokens": r.usage.input_tokens, "output_tokens": r.usage.output_tokens}
     return ok, f"facts {[f['supported'] for f in g['facts']]}, quality " \
                f"{g['explanation_quality']}/{g['uncertainty_communication']}: {g['comment']}", usage
 
@@ -339,6 +345,18 @@ def run_case(case: dict, model: str, use_judge: bool, verbose: bool) -> dict:
             "usage": usage, "judge_usage": judge_usage}
 
 
+def safe_run_case(case: dict, model: str, use_judge: bool, verbose: bool) -> dict:
+    """One broken case (or judge call) must never abort the whole run."""
+    try:
+        return run_case(case, model, use_judge, verbose)
+    except Exception as exc:
+        return {"id": case["id"], "tags": case.get("tags", []), "passed": False,
+                "turns": [{"user": case["turns"][0]["user"],
+                           "checks": {"runner": [False, f"{exc.__class__.__name__}: {exc}"]}}],
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "judge_usage": {"input_tokens": 0, "output_tokens": 0}}
+
+
 def cost(usage: dict, model: str) -> float:
     pin, pout = PRICES.get(model, (0.0, 0.0))
     return (usage["input_tokens"] * pin + usage["output_tokens"] * pout) / 1e6
@@ -370,7 +388,8 @@ def main() -> int:
           f"{' + judge ' + JUDGE_MODEL if args.judge else ''} ...", flush=True)
     t0 = time.perf_counter()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        results = list(pool.map(lambda c: run_case(c, args.model, args.judge, args.verbose), cases))
+        results = list(pool.map(lambda c: safe_run_case(c, args.model, args.judge, args.verbose),
+                                cases))
     wall = time.perf_counter() - t0
 
     # ---- report
