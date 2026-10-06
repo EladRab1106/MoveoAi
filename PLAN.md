@@ -2,7 +2,7 @@
 
 > This is the plan written at the start of the session and kept for reference. The build
 > differs in a few places: `app/main.py` became the zero-config Vercel entrypoint (no
-> `api/index.py`), the model is `claude-opus-5`, and there's a 16-case eval set. See
+> `api/index.py`), the model is `claude-opus-5`, and there's a 17-case eval set. See
 > [README.md](README.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what was built.
 
 ## 1. Goal
@@ -29,7 +29,7 @@ Build an agent that helps logistics analysts decide which US distribution hubs a
 ## 3. Data sources (all free; only one possibly needs a key)
 | Source | Use | Notes |
 |---|---|---|
-| **Open-Meteo Historical (ERA5) API** | Daily snowfall, precipitation, gusts, Tmin/Tmax per hub | No key. Main basis for the "disruption days" KPI and for questions like Denver snowfall % |
+| **Open-Meteo Historical API** | Daily snowfall, precipitation, gusts, Tmin/Tmax per hub | No key. Main basis for the "disruption days" KPI and for questions like Denver snowfall % |
 | **FEMA National Risk Index (NRI)** | County-level long-term hazard scores (hurricane, riverine/coastal flood, winter weather, heat, tornado) | Covers rare events that 5 years of history misses |
 | **OpenFEMA Disaster Declarations API** | Count of weather-related disaster declarations per county | Supporting evidence for explanations |
 | **NWS api.weather.gov alerts** | Active alerts per hub location | Feeds the "current risk" signal and the alert bonus |

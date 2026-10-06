@@ -36,7 +36,7 @@ The data snapshot (`data/weather.db`) is committed, so the app runs without fetc
 | `python -m scripts.ask "your question"` | Ask the agent from the terminal (prints the full JSON response) |
 | `pytest` | 57 unit/API tests (scoring math, ties, grounding checker, alerts). No API key needed |
 | `python -m evals.run --dev` | 7-case eval subset against the live agent (~$0.90) |
-| `python -m evals.run --judge` | Full 16-case eval + LLM-judge fact checks (~$2) |
+| `python -m evals.run --judge` | Full 17-case eval + LLM-judge checks (~$2.20) |
 | `python -m scripts.ingest` | Rebuild the data snapshot from the public APIs (~10 min; Open-Meteo rate limits) |
 | `python -m scripts.ingest --only declarations` | Refresh one source only |
 
@@ -64,7 +64,7 @@ flowchart LR
   AG -- "strict tools" --> SE["Scoring engine<br/>app/scoring (deterministic)"]
   SE --> DB[("data/weather.db<br/>read-only snapshot")]
   ING["scripts/ingest.py<br/>(offline)"] --> DB
-  ING -.-> OM["Open-Meteo ERA5"] & NRI["FEMA NRI"] & OF["OpenFEMA"]
+  ING -.-> OM["Open-Meteo Historical"] & NRI["FEMA NRI"] & OF["OpenFEMA"]
   AG -- "live" --> NWS["NWS alerts"]
   CRON["Vercel Cron (daily)"] --> AL["Alerts<br/>app/alerts"] --> SE
   AL --> RS[("Upstash Redis<br/>or SQLite")]
@@ -152,8 +152,10 @@ These cutoffs were calibrated to the observed spread of about 21–47.
 
 ## Assumptions, uncertainty and scope
 
-- **Each hub is one point** (approximate metro coordinates). ERA5 reanalysis (~25 km grid)
-  smooths local extremes, and FEMA NRI values describe the whole **county**, not the facility.
+- **Each hub is one point** (approximate metro coordinates). Weather comes from the Open-Meteo
+  Historical API with its default model selection: gridded model data at the hub's
+  coordinates, not a weather station at the facility, so local extremes are smoothed. FEMA NRI
+  values describe the whole **county**, not the facility.
 - **The observation window is 5 full years.** Rare events (hurricanes, major floods) are
   under-sampled in that window, which is why long-term NRI data is blended in. The agent
   lowers its `confidence` when evidence is thin.
