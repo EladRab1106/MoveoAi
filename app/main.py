@@ -1,7 +1,7 @@
 """FastAPI app: the agent API used by the chat UI, plus raw scoring endpoints.
 
 Local:  uvicorn app.main:app --reload   ->  http://localhost:8000
-Vercel: api/index.py re-exports `app`; public/ is served by Vercel's CDN.
+Vercel: zero-config FastAPI detects `app` in app/main.py; public/ is served by Vercel's CDN.
 """
 
 from __future__ import annotations

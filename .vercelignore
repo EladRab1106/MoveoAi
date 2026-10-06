@@ -1,0 +1,9 @@
+.venv/
+.env
+.claude/
+__pycache__/
+.pytest_cache/
+tests/
+evals/results/
+session/
+data/alerts.db
