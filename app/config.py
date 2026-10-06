@@ -25,6 +25,8 @@ ANTHROPIC_EFFORT = os.getenv("ANTHROPIC_EFFORT", "medium")
 # Only needed for API keys that are not scoped to a workspace.
 ANTHROPIC_WORKSPACE_ID = os.getenv("ANTHROPIC_WORKSPACE_ID", "")
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL", "")
+# If set, /api/alerts/check requires "Authorization: Bearer <CRON_SECRET>" (Vercel Cron sends it).
+CRON_SECRET = os.getenv("CRON_SECRET", "")
 
 # Vercel sets VERCEL=1. Its filesystem is read-only outside /tmp.
 ON_VERCEL = os.getenv("VERCEL") == "1"

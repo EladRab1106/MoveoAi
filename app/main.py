@@ -6,12 +6,15 @@ Vercel: api/index.py re-exports `app`; public/ is served by Vercel's CDN.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+import hmac
+import logging
+
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.agent.agent import AgentError, run_agent
 from app.agent.schemas import ChatRequest, ChatResponse
-from app.config import ANTHROPIC_MODEL, ROOT_DIR, scoring_config
+from app.config import ANTHROPIC_MODEL, CRON_SECRET, ROOT_DIR, scoring_config
 from app.hubs import HubNotFound, load_hubs
 from app.scoring import engine
 from app.scoring.models import HubRisk
@@ -63,6 +66,34 @@ def hub_risk(hub: str) -> HubRisk:
 def methodology() -> dict:
     cfg = scoring_config()
     return {k: cfg[k] for k in ("disruption_thresholds", "hazards", "composite_weights", "tiers")}
+
+
+# ------------------------------------------------------------------ alerts (bonus, isolated)
+# The alerts module is imported lazily so a missing/broken Redis or webhook config can only
+# affect these two endpoints, never chat or scoring.
+
+@app.api_route("/api/alerts/check", methods=["GET", "POST"])
+def alerts_check(authorization: str | None = Header(None)) -> dict:
+    """Recompute scores (with live NWS alerts), diff against the last snapshot, notify.
+    GET is what Vercel Cron calls; POST is for manual triggers."""
+    if CRON_SECRET and not hmac.compare_digest(authorization or "", f"Bearer {CRON_SECRET}"):
+        raise HTTPException(status_code=401, detail="Missing or invalid CRON_SECRET bearer token")
+    try:
+        from app.alerts.service import run_check
+        return run_check()
+    except Exception as exc:
+        logging.exception("alert check failed")
+        raise HTTPException(status_code=503, detail=f"Alert check unavailable: {exc}") from exc
+
+
+@app.get("/api/alerts")
+def alerts_recent(limit: int = Query(20, ge=1, le=200)) -> dict:
+    try:
+        from app.alerts.service import recent_alerts
+        return recent_alerts(limit)
+    except Exception as exc:
+        logging.exception("reading alerts failed")
+        raise HTTPException(status_code=503, detail=f"Alerts unavailable: {exc}") from exc
 
 
 # Local dev only: on Vercel, public/ is served statically before reaching Python.
