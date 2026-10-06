@@ -1,0 +1,90 @@
+# Deterministic scoring configuration. Every number here is an explicit,
+# reviewable assumption: change it and re-run, and the agent's answers change too.
+
+history:
+  years: 5            # number of full calendar years of daily history to ingest
+
+# A "disruption day" for a hazard is any day crossing its operational threshold.
+# Thresholds are chosen to approximate conditions that slow or stop truck / yard
+# operations, not merely "bad weather".
+disruption_thresholds:
+  winter:
+    snowfall_cm: 2.5          # daily snowfall >= 2.5 cm (~1 inch): roads need treatment
+    tmin_c: -18.0             # or daily min temp <= -18 C (0 F): equipment / labour issues
+  wind:
+    gust_kmh: 70.0            # daily max gust >= 70 km/h (~43 mph): high-profile vehicle risk
+  heavy_rain:
+    precip_mm: 50.0           # daily precipitation >= 50 mm (~2 in): flash-flood risk
+  heat:
+    tmax_c: 38.0              # daily max temp >= 38 C (~100 F): labour/heat-safety limits
+
+# Each hazard sub-score blends:
+#   frequency  = observed disruption days/yr (Open-Meteo history), min-max normalised across hubs
+#   long_term  = FEMA National Risk Index *annualized loss rate national percentile*
+#                (<CODE>_ALR_NPCTL, 0-100) for the hub's county. We deliberately use the loss
+#                RATE percentile rather than NRI's headline RISK score: the RISK score scales with
+#                total exposed building value, so every big-metro county scores ~99 for everything
+#                and hubs become indistinguishable. Not-applicable hazards count as 0.
+#   nri_agg    = how multiple NRI hazards combine: mean or max.
+# Hurricane relies only on NRI (loss rate + modelled annual frequency): 5 years of history is
+# too short to observe hurricanes, and gust days also capture nor'easters / thunderstorms. Cold wave (CWAV) is excluded from winter: its loss rate is driven by
+# crop-freeze losses (e.g. Miami-Dade ranks 91st pct), not by logistics disruption; extreme
+# cold is captured by the observed tmin threshold instead.
+hazards:
+  winter:
+    label: Winter storms & extreme cold
+    nri_hazards: [WNTW, ISTM]   # winter weather, ice storm
+    nri_agg: mean
+    frequency_from: winter
+    weights: {frequency: 0.6, long_term: 0.4}
+  hurricane:
+    label: Hurricanes & tropical wind
+    nri_hazards: [HRCN]
+    nri_agg: max
+    nri_afreq_weight: 0.5     # long_term = 0.5 * loss-rate pctl + 0.5 * NRI modelled events/yr (normalised)
+    frequency_from: wind
+    weights: {frequency: 0.0, long_term: 1.0}   # observed gusts are not hurricane-specific (nor'easters)
+  flood:
+    label: Flooding & extreme rainfall
+    nri_hazards: [IFLD, CFLD]   # inland flooding, coastal flooding
+    nri_agg: max
+    frequency_from: heavy_rain
+    weights: {frequency: 0.5, long_term: 0.5}
+  heat:
+    label: Extreme heat
+    nri_hazards: [HWAV]
+    nri_agg: max
+    frequency_from: heat
+    weights: {frequency: 0.6, long_term: 0.4}
+  severe_storm:
+    label: Tornadoes, hail & severe wind
+    nri_hazards: [TRND, HAIL, SWND]   # tornado, hail, strong wind
+    nri_agg: mean
+    frequency_from: wind
+    weights: {frequency: 0.4, long_term: 0.6}
+
+# Composite Weather Disruption Risk Score = sum(hazard_weight * hazard_sub_score)
+composite_weights:
+  winter: 0.25
+  hurricane: 0.20
+  flood: 0.20
+  severe_storm: 0.20
+  heat: 0.15
+
+# Additive bump (points) when NWS has active alerts for the hub, capped.
+active_alert_bump:
+  per_severe_alert: 5
+  per_extreme_alert: 10
+  max_bump: 15
+
+# Lower bound (inclusive) of each tier on the 0-100 composite. Calibrated to the observed
+# portfolio spread (~20-47): composites average several hazards, so no real hub is extreme
+# in all of them. Tiers are therefore relative prioritisation bands, not absolute probabilities.
+tiers:
+  critical: 50
+  high: 40
+  moderate: 30
+  low: 0
+
+alerts:
+  score_change_threshold: 5.0   # points; also alert on any tier change

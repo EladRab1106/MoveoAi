@@ -1,0 +1,193 @@
+# Regional distribution hubs analysed by the agent.
+# Coordinates are approximate metro-area logistics locations (assumption: one
+# representative point per hub). county_fips (5-digit) links each hub to FEMA's
+# county-level National Risk Index and disaster declarations.
+# region follows US Census regions: Midwest, Northeast, South, West.
+
+hubs:
+  # --- Midwest ---
+  - id: chicago
+    name: Chicago
+    state: IL
+    region: Midwest
+    lat: 41.8781
+    lon: -87.6298
+    county: Cook
+    county_fips: "17031"
+  - id: minneapolis
+    name: Minneapolis
+    state: MN
+    region: Midwest
+    lat: 44.9778
+    lon: -93.2650
+    county: Hennepin
+    county_fips: "27053"
+  - id: detroit
+    name: Detroit
+    state: MI
+    region: Midwest
+    lat: 42.3314
+    lon: -83.0458
+    county: Wayne
+    county_fips: "26163"
+  - id: indianapolis
+    name: Indianapolis
+    state: IN
+    region: Midwest
+    lat: 39.7684
+    lon: -86.1581
+    county: Marion
+    county_fips: "18097"
+  - id: columbus
+    name: Columbus
+    state: OH
+    region: Midwest
+    lat: 39.9612
+    lon: -82.9988
+    county: Franklin
+    county_fips: "39049"
+  - id: kansas_city
+    name: Kansas City
+    state: MO
+    region: Midwest
+    lat: 39.0997
+    lon: -94.5786
+    county: Jackson
+    county_fips: "29095"
+  - id: st_louis
+    name: St. Louis
+    state: MO
+    region: Midwest
+    lat: 38.6270
+    lon: -90.1994
+    county: St. Louis city
+    county_fips: "29510"
+
+  # --- South ---
+  - id: dallas
+    name: Dallas
+    state: TX
+    region: South
+    lat: 32.7767
+    lon: -96.7970
+    county: Dallas
+    county_fips: "48113"
+  - id: houston
+    name: Houston
+    state: TX
+    region: South
+    lat: 29.7604
+    lon: -95.3698
+    county: Harris
+    county_fips: "48201"
+  - id: miami
+    name: Miami
+    state: FL
+    region: South
+    lat: 25.7617
+    lon: -80.1918
+    county: Miami-Dade
+    county_fips: "12086"
+  - id: atlanta
+    name: Atlanta
+    state: GA
+    region: South
+    lat: 33.7490
+    lon: -84.3880
+    county: Fulton
+    county_fips: "13121"
+  - id: memphis
+    name: Memphis
+    state: TN
+    region: South
+    lat: 35.1495
+    lon: -90.0490
+    county: Shelby
+    county_fips: "47157"
+  - id: new_orleans
+    name: New Orleans
+    state: LA
+    region: South
+    lat: 29.9511
+    lon: -90.0715
+    county: Orleans
+    county_fips: "22071"
+  - id: charlotte
+    name: Charlotte
+    state: NC
+    region: South
+    lat: 35.2271
+    lon: -80.8431
+    county: Mecklenburg
+    county_fips: "37119"
+
+  # --- Northeast ---
+  - id: newark
+    name: Newark
+    state: NJ
+    region: Northeast
+    lat: 40.7357
+    lon: -74.1724
+    county: Essex
+    county_fips: "34013"
+    aliases: [new york, nyc]
+  - id: boston
+    name: Boston
+    state: MA
+    region: Northeast
+    lat: 42.3601
+    lon: -71.0589
+    county: Suffolk
+    county_fips: "25025"
+  - id: philadelphia
+    name: Philadelphia
+    state: PA
+    region: Northeast
+    lat: 39.9526
+    lon: -75.1652
+    county: Philadelphia
+    county_fips: "42101"
+
+  # --- West ---
+  - id: denver
+    name: Denver
+    state: CO
+    region: West
+    lat: 39.7392
+    lon: -104.9903
+    county: Denver
+    county_fips: "08031"
+  - id: phoenix
+    name: Phoenix
+    state: AZ
+    region: West
+    lat: 33.4484
+    lon: -112.0740
+    county: Maricopa
+    county_fips: "04013"
+  - id: los_angeles
+    name: Los Angeles
+    state: CA
+    region: West
+    lat: 34.0522
+    lon: -118.2437
+    county: Los Angeles
+    county_fips: "06037"
+    aliases: [la]
+  - id: seattle
+    name: Seattle
+    state: WA
+    region: West
+    lat: 47.6062
+    lon: -122.3321
+    county: King
+    county_fips: "53033"
+  - id: salt_lake_city
+    name: Salt Lake City
+    state: UT
+    region: West
+    lat: 40.7608
+    lon: -111.8910
+    county: Salt Lake
+    county_fips: "49035"
+    aliases: [slc]
