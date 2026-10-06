@@ -332,14 +332,21 @@ const VOICE_ERRORS = {
 // Errors that mean voice will never work in this browser: hide the mic for the session.
 const FATAL_VOICE_ERRORS = new Set(["network", "service-not-allowed", "language-not-supported"]);
 function setStatus(text) { $("status").textContent = text; }
-if (!SR) {
-  mic.hidden = true;  // API not supported (e.g. Firefox): don't show a dead button
+// Voice input is experimental: it failed to transcribe in testing (Chrome/macOS, mic permission
+// granted), so it's hidden unless opted in with ?voice=1. Read-aloud is unaffected.
+const VOICE_ENABLED = new URLSearchParams(location.search).get("voice") === "1";
+if (!SR || !VOICE_ENABLED) {
+  mic.hidden = true;  // unsupported (e.g. Firefox) or not opted in: don't show a dead button
 } else {
   const rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
+  // Log the full event sequence to the console to diagnose transcription failures.
+  ["audiostart", "soundstart", "speechstart", "speechend", "audioend", "nomatch"]
+    .forEach((ev) => rec.addEventListener(ev, () => console.debug("[voice]", ev)));
   let listening = false, failed = false;
   rec.onstart = () => { listening = true; failed = false; mic.classList.add("rec"); setStatus("Listening… click the mic again to stop."); };
   rec.onresult = (e) => { input.value = Array.from(e.results).map((r) => r[0].transcript).join(""); autosize(); };
   rec.onerror = (e) => {
+    console.debug("[voice] error", e.error, e.message);
     if (e.error === "aborted") return;
     failed = true;
     setStatus(VOICE_ERRORS[e.error] || `Voice input failed (${e.error}).`);
