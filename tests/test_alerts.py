@@ -139,3 +139,57 @@ def test_broken_alert_backend_does_not_affect_core_endpoints(monkeypatch):
     assert client.get("/api/alerts").status_code == 503
     assert client.get("/api/scores").status_code == 200
     assert client.get("/api/health").status_code == 200
+
+
+# ------------------------------------------------------------ signed webhooks + test sink
+
+def test_signature_roundtrip_and_tamper_detection():
+    body = b'{"text":"x"}'
+    sig = service.sign(body, "s3cret")
+    assert service.verify_signature(body, sig, "s3cret")
+    assert not service.verify_signature(body + b" ", sig, "s3cret")
+    assert not service.verify_signature(body, None, "s3cret")
+
+
+def test_sender_signs_payload(monkeypatch):
+    captured = {}
+
+    def fake_post(url, content, headers, timeout):
+        captured.update(body=content, headers=headers)
+        return httpx.Response(200, request=httpx.Request("POST", url))
+    monkeypatch.setattr(service, "CRON_SECRET", "s3cret")
+    monkeypatch.setattr(service.httpx, "post", fake_post)
+    assert service.send_webhook("https://hook.test", [], test=True).startswith("sent")
+    assert service.verify_signature(captured["body"], captured["headers"][service.SIGNATURE_HEADER], "s3cret")
+    assert json.loads(captured["body"])["test"] is True
+
+
+def test_send_test_alert_is_marked_and_skips_without_url(tmp_store):
+    assert service.send_test_alert(webhook_url="")["sent"] is False
+    sent = []
+    res = service.send_test_alert(webhook_url="https://hook.test",
+                                  webhook_sender=lambda url, alerts, test: sent.append((alerts, test)) or "sent (HTTP 200)")
+    assert res["sent"] and sent[0][1] is True
+    assert "TEST" in sent[0][0][0].reasons[0]
+
+
+def test_sink_accepts_only_signed_payloads(monkeypatch, tmp_store):
+    from app import main
+    monkeypatch.setattr(main, "CRON_SECRET", "s3cret")
+    monkeypatch.setattr(service, "get_store", lambda: tmp_store)
+    client = TestClient(main.app)
+    body = json.dumps({"text": "TEST weather risk alert (1 hub(s))\n• x", "test": True,
+                       "alerts": [{"hub_id": "dallas"}]}).encode()
+    url = "/api/alerts/webhook-test-sink"
+    assert client.post(url, content=body).status_code == 401
+    assert client.post(url, content=body, headers={service.SIGNATURE_HEADER: "sha256=bad"}).status_code == 401
+    ok = client.post(url, content=body, headers={service.SIGNATURE_HEADER: service.sign(body, "s3cret")})
+    assert ok.status_code == 200 and ok.json()["received"]["hubs"] == ["dallas"]
+    inbox = service.recent_alerts(store=tmp_store)["webhook_test_inbox"]
+    assert inbox[0]["test"] is True and inbox[0]["headline"].startswith("TEST")
+
+
+def test_test_alert_endpoint_requires_secret(monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "CRON_SECRET", "s3cret")
+    assert TestClient(main.app).post("/api/alerts/test").status_code == 401

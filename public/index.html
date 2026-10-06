@@ -468,7 +468,10 @@ async function loadAlerts() {
     const d = await res.json();
     const last = d.last_check ? `Last check ${d.last_check.checked_at.replace("T", " ").slice(0, 16)} UTC: ${d.last_check.status}.`
                               : "No check has run yet.";
-    $("alerts-meta").textContent = `${last} Storage: ${d.store.backend}${d.store.persistent ? "" : " (not persistent)"}.`;
+    const inbox = d.webhook_test_inbox && d.webhook_test_inbox[0];
+    const hook = inbox ? ` Last webhook delivery: ${inbox.received_at.replace("T", " ").slice(0, 16)} UTC${inbox.test ? " (test)" : ""}.`
+                       : (d.webhook_configured ? " Webhook configured." : "");
+    $("alerts-meta").textContent = `${last} Storage: ${d.store.backend}${d.store.persistent ? "" : " (not persistent)"}.${hook}`;
     $("alerts").innerHTML = d.alerts.length ? d.alerts.map((a) => `<li><strong>${esc(a.name)}</strong>
       ${a.previous_score} → ${a.current_score} <span class="tier ${esc(a.current_tier)}">${esc(a.current_tier)}</span>
       <div class="when">${esc(a.detected_at.replace("T", " ").slice(0, 16))} UTC · ${esc(a.reasons.join("; "))}</div></li>`).join("")

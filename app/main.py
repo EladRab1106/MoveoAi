@@ -9,7 +9,7 @@ from __future__ import annotations
 import hmac
 import logging
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 from app.agent.agent import AgentError, run_agent
@@ -84,14 +84,48 @@ def methodology() -> dict:
 def alerts_check(authorization: str | None = Header(None)) -> dict:
     """Recompute scores (with live NWS alerts), diff against the last snapshot, notify.
     GET is what Vercel Cron calls; POST is for manual triggers."""
-    if CRON_SECRET and not hmac.compare_digest(authorization or "", f"Bearer {CRON_SECRET}"):
-        raise HTTPException(status_code=401, detail="Missing or invalid CRON_SECRET bearer token")
+    _require_cron_secret(authorization)
     try:
         from app.alerts.service import run_check
         return run_check()
     except Exception as exc:
         logging.exception("alert check failed")
         raise HTTPException(status_code=503, detail=f"Alert check unavailable: {exc}") from exc
+
+
+def _require_cron_secret(authorization: str | None) -> None:
+    if CRON_SECRET and not hmac.compare_digest(authorization or "", f"Bearer {CRON_SECRET}"):
+        raise HTTPException(status_code=401, detail="Missing or invalid CRON_SECRET bearer token")
+
+
+@app.post("/api/alerts/test")
+def alerts_send_test(authorization: str | None = Header(None)) -> dict:
+    """Send a marked TEST alert to ALERT_WEBHOOK_URL (no effect on snapshot or alert log)."""
+    _require_cron_secret(authorization)
+    try:
+        from app.alerts.service import send_test_alert
+        return send_test_alert()
+    except Exception as exc:
+        logging.exception("test alert failed")
+        raise HTTPException(status_code=503, detail=f"Test alert unavailable: {exc}") from exc
+
+
+@app.post("/api/alerts/webhook-test-sink")
+async def alerts_webhook_sink(request: Request) -> dict:
+    """Built-in test webhook receiver. Accepts only payloads signed with CRON_SECRET."""
+    from app.alerts.service import SIGNATURE_HEADER, record_webhook_delivery, verify_signature
+    if not CRON_SECRET:
+        raise HTTPException(status_code=503, detail="Test sink disabled: CRON_SECRET not set")
+    body = await request.body()
+    if len(body) > 64_000 or not verify_signature(body, request.headers.get(SIGNATURE_HEADER),
+                                                  CRON_SECRET):
+        raise HTTPException(status_code=401, detail="Invalid or missing webhook signature")
+    try:
+        import json as _json
+        return {"received": record_webhook_delivery(_json.loads(body))}
+    except Exception as exc:
+        logging.exception("webhook sink failed")
+        raise HTTPException(status_code=503, detail=f"Sink unavailable: {exc}") from exc
 
 
 @app.get("/api/alerts")

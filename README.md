@@ -229,8 +229,19 @@ SQLite file otherwise. Alerts are isolated from the rest of the app:
 
 ```bash
 curl -X POST localhost:8000/api/alerts/check   # add -H "Authorization: Bearer $CRON_SECRET" if set
-curl localhost:8000/api/alerts
+curl -X POST localhost:8000/api/alerts/test    # sends a marked TEST alert to the webhook
+curl localhost:8000/api/alerts                 # recent alerts, last check, test-sink inbox
 ```
+
+**Signed webhooks.** When `CRON_SECRET` is set, every webhook request carries
+`X-Weather-Alert-Signature: sha256=<HMAC-SHA256 of the body>`, so a receiver can verify it came
+from this app.
+
+**Built-in test receiver.** `POST /api/alerts/webhook-test-sink` accepts only correctly signed
+payloads and keeps the last 20 deliveries in the alert store. They're shown by `/api/alerts` and
+in the UI sidebar. Point `ALERT_WEBHOOK_URL` at `https://<your-deployment>/api/alerts/webhook-test-sink`
+to demo alerts end to end without a third-party service, or at a Slack incoming webhook for real
+notifications.
 
 ---
 
